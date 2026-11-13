@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏢 AI 像素赛博办公室 - 智能体协作监控</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部状态栏 -->
+    <header class="retro-header">
+      <div class="logo-group">
+        <span class="pixel-icon">🏢</span>
+        <div>
+          <h1 class="pixel-title">AI CYBER OFFICE</h1>
+          <span class="pixel-subtitle">像素风多智能体协作与额度实时监控看板</span>
+        </div>
+      </div>
+
+      <div class="header-stats">
+        <div class="stat-badge">
+          <span class="stat-label">运行中任务</span>
+          <span class="stat-val" id="stat-active-tasks">0</span>
+        </div>
+        <div class="stat-badge">
+          <span class="stat-label">协作交接数</span>
+          <span class="stat-val" id="stat-handoffs">0</span>
+        </div>
+        <div class="stat-badge">
+          <span class="stat-label">总消耗 Token</span>
+          <span class="stat-val" id="stat-tokens">142,580</span>
+        </div>
+        <button id="btn-toggle-taskbar-mode" class="pixel-btn primary" title="切换为任务栏极简迷你挂件模式 (高40px，不占桌面)">
+          📌 任务栏迷你模式
+        </button>
+        <button id="btn-audio" class="pixel-btn icon-btn" title="开关 8-bit 音效">
+          🔊
+        </button>
+      </div>
+    </header>
+
+    <!-- 主展示区 -->
+    <main class="main-viewport">
+      <!-- 像素画板画布容器 -->
+      <div class="canvas-container">
+        <canvas id="officeCanvas" width="960" height="560"></canvas>
+        <div id="tooltip" class="pixel-tooltip hidden"></div>
+      </div>
+
+      <!-- 右侧控制与事件监视面板 -->
+      <aside class="side-panel">
+        <!-- 部门配额与状态卡片 -->
+        <div class="panel-section">
+          <h3 class="section-title"><span>⚡</span> 部门状态与额度 (QUOTA)</h3>
+          <div class="dept-list" id="dept-list">
+            <!-- 动态生成部门卡片 -->
+          </div>
+        </div>
+
+        <!-- 场景模拟与操作控制台 -->
+        <div class="panel-section">
+          <h3 class="section-title"><span>🎮</span> 模拟控制台 (SIMULATOR)</h3>
+          <div class="control-grid">
+            <button class="pixel-btn action-btn primary" id="btn-cross-handoff">
+              <span class="btn-icon">📁</span>
+              <span>Claude ➔ DeepSeek 跨区交接</span>
+            </button>
+            <button class="pixel-btn action-btn" id="btn-ag-handoff" style="background:#5b21b6; border-color:#7c3aed;">
+              <span class="btn-icon">✦</span>
+              <span>Antigravity ➔ DeepSeek 浮空交接</span>
+            </button>
+            <button class="pixel-btn action-btn" id="btn-intra-handoff">
+              <span class="btn-icon">🤝</span>
+              <span>OpenAI 部门内部任务交接</span>
+            </button>
+            <button class="pixel-btn action-btn warning" id="btn-toggle-quota-claude">
+              <span class="btn-icon">🌙</span>
+              <span>Claude 额度耗尽 (关灯睡觉)</span>
+            </button>
+            <button class="pixel-btn action-btn success" id="btn-all-work">
+              <span class="btn-icon">🔥</span>
+              <span>全员突击加班 (疯狂打字)</span>
+            </button>
+            <button class="pixel-btn action-btn secondary" id="btn-toggle-auto">
+              <span class="btn-icon">🎲</span>
+              <span id="auto-btn-text">开启全自动交接演练</span>
+            </button>
+            <button class="pixel-btn action-btn danger" id="btn-reset-all">
+              <span class="btn-icon">🔄</span>
+              <span>重置所有人为空闲</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 实时工作动态日志 -->
+        <div class="panel-section log-section">
+          <div class="log-header">
+            <h3 class="section-title"><span>📟</span> 实时流转日志 (EVENT STREAM)</h3>
+            <button class="text-btn" id="btn-clear-log">清屏</button>
+          </div>
+          <div class="log-stream" id="log-stream">
+            <!-- 日志条目动态添加 -->
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- 底部状态说明条 (全屏模式下显示) -->
+    <footer class="retro-footer">
+      <div class="legend-item"><span class="legend-dot idle"></span> 空闲就绪 (电脑休眠)</div>
+      <div class="legend-item"><span class="legend-dot working"></span> 执行中 (电脑发光/敲键盘)</div>
+      <div class="legend-item"><span class="legend-dot handoff"></span> 交接中 (起立走动送公文)</div>
+      <div class="legend-item"><span class="legend-dot sleep"></span> 额度耗尽 (关灯趴桌睡觉 Zzz)</div>
+      <div class="system-tip">💡 提示：点击右上角「📌 任务栏迷你模式」可切换为40px高、常驻底部的极简状态栏挂件！</div>
+    </footer>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- 任务栏常驻极简迷你挂件条 (MINI TASKBAR DOCK) -->
+  <!-- ============================================== -->
+  <div id="taskbar-dock" class="taskbar-dock hidden" data-tauri-drag-region>
+    <!-- 动态交接状态浮动气泡条 (清晰标明：发起方 ➔ 接收方) -->
+    <div id="dock-handoff-banner" class="dock-handoff-banner hidden">
+      <span class="banner-from" id="banner-from">🦀 Claude</span>
+      <span class="banner-arrow">━━( 📁 <span id="banner-task">代码安全审计</span> )━━▶</span>
+      <span class="banner-to" id="banner-to">🐳 DeepSeek</span>
+    </div>
+
+    <div class="dock-drag-handle" title="按住拖动挂件位置" data-tauri-drag-region>❖</div>
+
+    <!-- 4 个极简 AI 工位槽位 -->
+    <div class="dock-pods" id="dock-pods-container">
+      <!-- 真正跨槽位奔跑的小人 -->
+      <div id="dock-flying-runner" class="dock-flying-runner hidden">
+        <span id="dock-runner-avatar">🏃</span>
+        <span class="runner-file">📁</span>
+      </div>
+
+      <!-- DeepSeek 官方鲸鱼槽位 -->
+      <div class="dock-pod" id="dock-pod-deepseek" title="DeepSeek (官方客户端)">
+        <span class="dock-avatar">
+          <svg class="dock-official-icon" viewBox="0 0 24 24" width="18" height="18">
+            <path fill="#2563eb" d="M3.5 14.5c0-4.5 3.5-7.5 8.5-7.5 3 0 5.5 1.2 7 3.5-1.5.5-2.5 1.5-2.5 3 0 2 1.5 3 3.5 3-1.5 2-4 3-7 3-6 0-9.5-2.5-9.5-5z"/>
+            <path fill="#38bdf8" d="M18.5 7.5c1-1.5 2.5-2.5 4.5-2.5-1 2-1 3.5 0 5-1.5-1-3-1.5-4.5-2.5z"/>
+            <circle cx="8.5" cy="12" r="1.2" fill="#ffffff"/>
+          </svg>
+        </span>
+        <div class="dock-info">
+          <span class="dock-name">DeepSeek</span>
+          <span class="dock-state-badge" id="dock-state-deepseek">待命</span>
+        </div>
+        <span class="dock-quota" id="dock-quota-deepseek">78%</span>
+        <span class="dock-light-dot" id="dock-dot-deepseek"></span>
+      </div>
+
+      <!-- Claude 官方星芒槽位 -->
+      <div class="dock-pod" id="dock-pod-claude" title="Claude / Anthropic (官方客户端)">
+        <span class="dock-avatar">
+          <svg class="dock-official-icon" viewBox="0 0 24 24" width="18" height="18">
+            <path fill="#d97757" d="M12 2a1 1 0 0 1 1 1v4.07l2.88-2.88a1 1 0 1 1 1.41 1.41L14.41 8.48l4.07-1.09a1 1 0 0 1 .52 1.93l-4.07 1.09 3.53 2.04a1 1 0 1 1-1 1.73l-3.53-2.04.53 4.18a1 1 0 1 1-1.98.25l-.53-4.18-2.88 2.88a1 1 0 1 1-1.41-1.41l2.88-2.88-4.07 1.09a1 1 0 1 1-.52-1.93l4.07-1.09-3.53-2.04a1 1 0 0 1 1-1.73l3.53 2.04-.53-4.18A1 1 0 0 1 12 2z"/>
+          </svg>
+        </span>
+        <div class="dock-info">
+          <span class="dock-name">Claude</span>
+          <span class="dock-state-badge" id="dock-state-claude">待命</span>
+        </div>
+        <span class="dock-quota" id="dock-quota-claude">85%</span>
+        <span class="dock-light-dot" id="dock-dot-claude"></span>
+      </div>
+
+      <!-- ChatGPT / OpenAI 官方陀螺漩涡槽位 -->
+      <div class="dock-pod" id="dock-pod-openai" title="ChatGPT / OpenAI (官方客户端)">
+        <span class="dock-avatar">
+          <svg class="dock-official-icon" viewBox="0 0 24 24" width="18" height="18">
+            <path fill="#10a37f" d="M22.28 9.38a5.98 5.98 0 0 0-.52-4.93 6.07 6.07 0 0 0-6.49-2.92A6 6 0 0 0 10.8.27a6.05 6.05 0 0 0-5.74 4.16 6 6 0 0 0-4.18 3.03 6.06 6.06 0 0 0 .78 6.98 5.98 5.98 0 0 0 .52 4.93 6.07 6.07 0 0 0 6.49 2.92A6 6 0 0 0 13.2 23.73a6.05 6.05 0 0 0 5.74-4.16 6 6 0 0 0 4.18-3.03 6.06 6.06 0 0 0-.84-7.16zM13.2 22.3a4.57 4.57 0 0 1-2.97-1.1c.03-.02.08-.04.12-.06l4.9-2.83a.75.75 0 0 0 .38-.65v-6.91l2.08 1.2a.1.1 0 0 1 .05.08v5.7a4.58 4.58 0 0 1-4.56 4.57zM3.48 18.06a4.57 4.57 0 0 1-.56-3.12c.03.02.07.05.11.07l4.9 2.83a.75.75 0 0 0 .76 0l5.98-3.46v2.4a.1.1 0 0 1-.04.09l-4.94 2.85a4.58 4.58 0 0 1-6.21-1.66zm-1.7-8.9a4.57 4.57 0 0 1 2.4-2.02v5.82a.75.75 0 0 0 .38.65l5.98 3.45-2.08 1.2a.1.1 0 0 1-.1 0L3.42 15.4A4.58 4.58 0 0 1 1.78 9.16zm15.42 1.73l-4.9-2.83a.75.75 0 0 0-.76 0L5.56 11.52V9.12a.1.1 0 0 1 .04-.09l4.94-2.85a4.58 4.58 0 0 1 6.66 4.71zm2.3 5.95a4.57 4.57 0 0 1-2.4 2.02v-5.82a.75.75 0 0 0-.38-.65l-5.98-3.45 2.08-1.2a.1.1 0 0 1 .1 0l4.94 2.85a4.58 4.58 0 0 1 1.64 6.25zM10.8 1.7a4.57 4.57 0 0 1 2.97 1.1c-.03.02-.08.04-.12.06l-4.9 2.83a.75.75 0 0 0-.38.65v6.91l-2.08-1.2a.1.1 0 0 1-.05-.08V6.27A4.58 4.58 0 0 1 10.8 1.7z"/>
+          </svg>
+        </span>
+        <div class="dock-info">
+          <span class="dock-name">ChatGPT</span>
+          <span class="dock-state-badge" id="dock-state-openai">待命</span>
+        </div>
+        <span class="dock-quota" id="dock-quota-openai">92%</span>
+        <span class="dock-light-dot" id="dock-dot-openai"></span>
+      </div>
+
+      <!-- Antigravity / Gemini 官方四芒星槽位 -->
+      <div class="dock-pod" id="dock-pod-antigravity" title="Antigravity / DeepMind (官方客户端)">
+        <span class="dock-avatar">
+          <svg class="dock-official-icon" viewBox="0 0 24 24" width="18" height="18">
+            <defs>
+              <linearGradient id="geminiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8"/>
+                <stop offset="50%" stop-color="#818cf8"/>
+                <stop offset="100%" stop-color="#c084fc"/>
+              </linearGradient>
+            </defs>
+            <path fill="url(#geminiGrad)" d="M12 0C12 6.627 6.627 12 0 12c6.627 0 12 5.373 12 12 0-6.627 5.373-12 12-12-6.627 0-12-5.373-12-12z"/>
+          </svg>
+        </span>
+        <div class="dock-info">
+          <span class="dock-name">Antigravity</span>
+          <span class="dock-state-badge" id="dock-state-antigravity">待命</span>
+        </div>
+        <span class="dock-quota" id="dock-quota-antigravity">98%</span>
+        <span class="dock-light-dot" id="dock-dot-antigravity"></span>
+      </div>
+    </div>
+
+    <!-- 任务栏动态交接通道 -->
+    <div class="dock-handoff-track" id="dock-handoff-track">
+      <span id="dock-runner" class="dock-runner hidden">🏃 📁</span>
+    </div>
+
+    <!-- 展开与快捷操作按钮 -->
+    <div class="dock-actions">
+      <button class="dock-btn" id="dock-btn-quick-task" title="快速触发一次多模型协同交接">⚡ 交接</button>
+      <button class="dock-btn primary" id="dock-btn-expand" title="展开为全景像素办公室大看板">🏢 展开全景</button>
+    </div>
+  </div>
+
+  <!-- 自定义工区设置弹窗 -->
+  <div id="modal-zone-editor" class="pixel-modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ 自定义工作区域设置</h3>
+        <button class="modal-close-btn" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label class="form-label">选择要编辑的工作区：</label>
+          <select id="edit-dept-select" class="pixel-input">
+            <option value="deepseek">DeepSeek 算法攻坚组 (小鲸鱼)</option>
+            <option value="claude">Claude 创意研发组 (陶土多脚怪)</option>
+            <option value="openai">OpenAI 综合推理组 (赛博执事)</option>
+            <option value="antigravity">Antigravity 架构总控组 (浮空工匠)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">区域自定义名称：</label>
+          <input type="text" id="edit-dept-name" class="pixel-input" placeholder="例如：DeepSeek 生产线 / 我的小鲸鱼工作室">
+        </div>
+        <div class="form-row">
+          <label class="form-label">主题标识色：</label>
+          <input type="color" id="edit-dept-color" class="pixel-color-input">
+        </div>
+        <div class="form-row-grid">
+          <div>
+            <label class="form-label">起始 X (左边距)：</label>
+            <input type="number" id="edit-dept-x" class="pixel-input" min="0" max="900" step="10">
+          </div>
+          <div>
+            <label class="form-label">起始 Y (上边距)：</label>
+            <input type="number" id="edit-dept-y" class="pixel-input" min="0" max="500" step="10">
+          </div>
+          <div>
+            <label class="form-label">区域宽度 W：</label>
+            <input type="number" id="edit-dept-w" class="pixel-input" min="160" max="800" step="20">
+          </div>
+          <div>
+            <label class="form-label">区域高度 H：</label>
+            <input type="number" id="edit-dept-h" class="pixel-input" min="120" max="500" step="20">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="pixel-btn danger" id="btn-reset-layout">恢复默认四区</button>
+        <button class="pixel-btn primary" id="btn-save-zone">保存并应用设置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 引入音效、像素画图、场景引擎与模拟器 -->
+  <script src="js/audio.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/office.js"></script>
+  <script src="js/simulation.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
