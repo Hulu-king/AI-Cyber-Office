@@ -16,6 +16,10 @@ import subprocess
 import sys
 import unicodedata
 from pathlib import Path
+
+# Fix WebKit2GTK blank/unmapped window on NVIDIA + Wayland
+os.environ.setdefault("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
+
 import gi
 
 gi.require_version('Gtk', '3.0')
@@ -359,6 +363,11 @@ class AIDesktopDock(Gtk.Window):
         return False
 
     def on_open_full_office(self, btn):
+        try:
+            with open("/tmp/ai-cyber-dock.log", "a", encoding="utf-8") as lf:
+                lf.write(f"[CLICK] on_open_full_office HAS_WEBKIT2={HAS_WEBKIT2}\n")
+        except Exception:
+            pass
         self.ensure_server_running()
         try:
             state = ai_real_monitor.load_ceo_state()
