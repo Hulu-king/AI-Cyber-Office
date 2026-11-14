@@ -212,8 +212,9 @@ def get_chatgpt_live(ceo_state):
         "provider": "OpenAI",
         "installed": False,
         "running": False,
-        "quota_percent": 73,
-        "display_str": "73%",
+        "quota_percent": 0,
+        "display_str": "未知",
+        "quota_source": "unknown",
         "is_sleeping": False,
         "status": "active",
         "active_windows": 0,
@@ -428,10 +429,11 @@ def get_claude_live(ceo_state):
         "provider": "Anthropic",
         "installed": False,
         "running": False,
-        "quota_percent": 22,
-        "display_str": "5h冷却(周余22%)",
+        "quota_percent": 0,
+        "display_str": "未知",
+        "quota_source": "unknown",
         "is_sleeping": False,
-        "status": "coffee_break",
+        "status": "active",
         "active_windows": 1,
         "scroll_items": [],
         "tooltip_lines": [],
@@ -733,8 +735,9 @@ def get_antigravity_live(ceo_state):
         "provider": "Google DeepMind",
         "installed": False,
         "running": False,
-        "quota_percent": 86,
-        "display_str": "86%",
+        "quota_percent": 100,
+        "display_str": "未知(在线)",
+        "quota_source": "unavailable",
         "is_sleeping": False,
         "status": "active",
         "active_windows": 1,
@@ -762,17 +765,6 @@ def get_antigravity_live(ceo_state):
                 lines = f.read().decode("utf-8", errors="ignore").splitlines()
 
             if idx_t == 0:
-                for line in reversed(lines):
-                    if not line.strip().startswith("{"):
-                        continue
-                    d = json.loads(line)
-                    step_idx = d.get("step_index", 0)
-                    if step_idx:
-                        rem = max(15, 100 - int(step_idx / 48))
-                        result["quota_percent"] = rem
-                        result["display_str"] = f"{rem}%"
-                        break
-
                 for line in reversed(lines):
                     if not line.strip().startswith("{"):
                         continue
@@ -850,7 +842,7 @@ def get_antigravity_live(ceo_state):
         except Exception:
             pass
 
-    result["scroll_items"].insert(0, "🧠 模型: Gemini 4 Argon (Medium) 协同中")
+    result["scroll_items"].insert(0, "✦ Antigravity 本地会话协同中")
     return result
 
 
@@ -860,6 +852,9 @@ def _tr(text, lang="zh"):
         return text
     s = str(text)
     replacements = [
+        ("未知(在线)", "N/A (Active)"),
+        ("未知", "N/A"),
+        ("✦ Antigravity 本地会话协同中", "✦ Antigravity Agent Active"),
         ("0%(余额不足)", "0% (No Balance)"),
         ("0%(额度耗尽)", "0% (Exhausted)"),
         ("茶歇(周余", "Break (Wk "),

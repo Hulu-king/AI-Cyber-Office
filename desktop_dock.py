@@ -14,10 +14,15 @@ import os
 import socket
 import subprocess
 import sys
+import threading
+import time
 import unicodedata
 from pathlib import Path
 
-# Fix WebKit2GTK blank/unmapped window on NVIDIA + Wayland
+# Local compatibility for this process only:
+# 1. NO_AT_BRIDGE=1 prevents libatk-bridge SIGSEGV in WebKit2GTK when AT-SPI bus is unresponsive
+# 2. WEBKIT_DISABLE_DMABUF_RENDERER=1 prevents blank WebKit2 window on NVIDIA + Wayland
+os.environ.setdefault("NO_AT_BRIDGE", "1")
 os.environ.setdefault("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
 
 import gi
@@ -189,6 +194,8 @@ class AIDesktopDock(Gtk.Window):
 
         self.full_win = None
         self.webview = None
+        self._full_load_ok = False
+        self._stop_event = threading.Event()
         init_state = ai_real_monitor.load_ceo_state()
         self.last_return_ts = init_state.get("return_to_dock_ts", 0)
 
@@ -196,11 +203,12 @@ class AIDesktopDock(Gtk.Window):
         self.init_ui()
         self.ensure_server_running()
 
-        self.sync_with_real_ai()
+        # Initial non-blocking background telemetry sync
+        self._poll_thread = threading.Thread(target=self._poll_loop, daemon=True)
+        self._poll_thread.start()
 
         GLib.timeout_add(180, self.step_pod_marquees)
         GLib.timeout_add(350, self.check_mode_switch)
-        GLib.timeout_add(3000, self.sync_with_real_ai)
 
     def apply_css(self):
         provider = Gtk.CssProvider()
@@ -358,10 +366,6 @@ class AIDesktopDock(Gtk.Window):
         except Exception as e:
             print(f"[NATIVE DOCK] start server failed: {e}")
 
-    def _hide_dock_once(self):
-        self.hide()
-        return False
-
     def on_open_full_office(self, btn):
         try:
             with open("/tmp/ai-cyber-dock.log", "a", encoding="utf-8") as lf:
@@ -378,6 +382,7 @@ class AIDesktopDock(Gtk.Window):
 
         if HAS_WEBKIT2:
             try:
+                self._full_load_ok = False
                 if self.full_win is None:
                     self.full_win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
                     cur_lang = ai_real_monitor.load_ceo_state().get("lang", "zh")
@@ -395,6 +400,9 @@ class AIDesktopDock(Gtk.Window):
                     settings.set_enable_developer_extras(True)
                     settings.set_javascript_can_open_windows_automatically(True)
                     self.webview.connect("close", self.on_close_full_office)
+                    self.webview.connect("load-changed", self.on_webview_load_changed)
+                    self.webview.connect("load-failed", self.on_webview_load_failed)
+                    self.webview.connect("web-process-terminated", self.on_webview_terminated)
                     self.full_win.add(self.webview)
                     self.full_win.connect("delete-event", self.on_full_win_delete)
                     self.webview.load_uri("http://localhost:8080")
@@ -402,12 +410,26 @@ class AIDesktopDock(Gtk.Window):
                     self.webview.reload()
                 self.full_win.show_all()
                 self.full_win.present_with_time(Gtk.get_current_event_time())
-                GLib.timeout_add(250, self._hide_dock_once)
                 return
             except Exception as e:
                 print(f"[NATIVE DOCK] WebKit2 open failed, fallback to browser: {e}")
 
         subprocess.Popen(["xdg-open", "http://localhost:8080"])
+
+    def on_webview_load_changed(self, webview, load_event):
+        if load_event == WebKit2.LoadEvent.FINISHED:
+            self._full_load_ok = True
+            self.hide()
+
+    def on_webview_load_failed(self, webview, load_event, failing_uri, error):
+        self._full_load_ok = False
+        self.return_to_mini_dock()
+        subprocess.Popen(["xdg-open", "http://localhost:8080"])
+        return True
+
+    def on_webview_terminated(self, webview, reason):
+        self._full_load_ok = False
+        self.return_to_mini_dock()
 
     def on_full_win_delete(self, win, event):
         self.return_to_mini_dock()
@@ -457,11 +479,29 @@ class AIDesktopDock(Gtk.Window):
             pod["state_lbl"].set_markup(f"<span foreground='{fg}'>{escaped}</span>")
         return True
 
+    def _poll_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                importlib.reload(ai_real_monitor)
+                snap = ai_real_monitor.get_snapshot()
+                GLib.idle_add(self._apply_snapshot, snap)
+            except Exception as e:
+                print(f"[NATIVE DOCK] 后台采集异常: {e}")
+            self._stop_event.wait(3.0)
+
     def sync_with_real_ai(self):
-        """从 ai_real_monitor 同步 4 大 AI 客户端的真实实时额度与正在执行的任务/终端"""
+        """即时刷新一次快照（如切换语言后）"""
         try:
             importlib.reload(ai_real_monitor)
             snap = ai_real_monitor.get_snapshot()
+            self._apply_snapshot(snap)
+        except Exception as e:
+            print(f"[NATIVE DOCK] UI更新异常: {e}")
+        return False
+
+    def _apply_snapshot(self, snap):
+        """在 GTK 主线程中安全更新 UI（数据已在后台线程采集完毕）"""
+        try:
             lang = snap.get("lang", "zh")
             is_en = (lang == "en")
 
@@ -538,8 +578,8 @@ class AIDesktopDock(Gtk.Window):
 
             self.set_keep_above(True)
         except Exception as e:
-            print(f"[NATIVE DOCK] 实时同步异常: {e}")
-        return True
+            print(f"[NATIVE DOCK] UI更新异常: {e}")
+        return False
 
 
 def main():

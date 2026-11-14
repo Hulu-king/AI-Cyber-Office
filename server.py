@@ -10,11 +10,54 @@ import json
 import os
 import socketserver
 import subprocess
+import sys
+import tempfile
+import threading
 import time
 import ai_real_monitor
 
 PORT = 8080
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+LOG_FILE = os.path.join(tempfile.gettempdir(), "ai-cyber-office-server.log")
+
+_snap_lock = threading.Lock()
+_snap_cache = {"ts": 0.0, "data": None}
+
+
+def _get_cached_snapshot(force=False):
+    now = time.time()
+    with _snap_lock:
+        if not force and _snap_cache["data"] is not None and (now - _snap_cache["ts"]) < 2.0:
+            return _snap_cache["data"]
+        importlib.reload(ai_real_monitor)
+        snap = ai_real_monitor.get_snapshot()
+        _snap_cache["ts"] = now
+        _snap_cache["data"] = snap
+        return snap
+
+
+def _safe_log(msg):
+    try:
+        sys.stderr.write(msg + "\n")
+        sys.stderr.flush()
+    except Exception:
+        pass
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as lf:
+            lf.write(msg + "\n")
+    except Exception:
+        pass
+
+
+class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def handle_error(self, request, client_address):
+        try:
+            super().handle_error(request, client_address)
+        except Exception as e:
+            _safe_log(f"[SERVER] handle_error suppressed: {e}")
 
 
 class CyberOfficeHandler(http.server.SimpleHTTPRequestHandler):
@@ -22,10 +65,18 @@ class CyberOfficeHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
     def log_message(self, format, *args):
-        # 过滤高频轮询日志，保持终端整洁
+        # 过滤高频轮询日志，且即使终端 pty 关闭也不抛异常退出
         if args and "/api/live_state" in str(args[0]):
             return
-        super().log_message(format, *args)
+        try:
+            msg = "%s - - [%s] %s" % (
+                self.address_string(),
+                self.log_date_time_string(),
+                format % args,
+            )
+            _safe_log(msg)
+        except Exception:
+            pass
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -37,8 +88,7 @@ class CyberOfficeHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/live_state'):
             try:
-                importlib.reload(ai_real_monitor)
-                snap = ai_real_monitor.get_snapshot()
+                snap = _get_cached_snapshot(force=False)
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self.end_headers()
@@ -125,7 +175,7 @@ class CyberOfficeHandler(http.server.SimpleHTTPRequestHandler):
                         else:
                             overrides[dept_id] = "awake"
                 ai_real_monitor.save_ceo_state(state)
-                snap = ai_real_monitor.get_snapshot()
+                snap = _get_cached_snapshot(force=True)
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self.end_headers()
@@ -166,15 +216,14 @@ class CyberOfficeHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def main():
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), CyberOfficeHandler) as httpd:
-        print("=====================================================")
-        print(f"🏢 AI 像素赛博办公室已启动！http://localhost:{PORT}")
-        print("=====================================================")
+    with ThreadingHTTPServer(("", PORT), CyberOfficeHandler) as httpd:
+        _safe_log("=====================================================")
+        _safe_log(f"🏢 AI 像素赛博办公室已启动！http://localhost:{PORT}")
+        _safe_log("=====================================================")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            print("\n服务已优雅关闭。")
+            _safe_log("\n服务已优雅关闭。")
 
 
 if __name__ == '__main__':
