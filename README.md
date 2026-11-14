@@ -21,6 +21,9 @@ A cross-platform **real-time pixel cyber office & floating desktop dock** that m
 ### 🚀 Quick Start
 
 ```bash
+git clone https://github.com/Hulu-king/AI-Cyber-Office.git
+cd AI-Cyber-Office
+
 # 1. Start local backend & web dashboard (http://localhost:8080)
 python3 server.py
 
@@ -28,11 +31,41 @@ python3 server.py
 python3 desktop_dock.py
 ```
 
-### 🔌 Use as a Plugin / Skill / MCP Server in AI Tools
-This repository follows universal AI plugin standards:
-- **Antigravity**: Includes `plugin.json`, `skills/ai-cyber-office/SKILL.md`, and `mcp_config.json`.
-- **Claude Code**: Includes `.claude-plugin/plugin.json`.
-- **Codex / Cursor / Windsurf / Any MCP Client**: Point your MCP config to `python3 /path/to/AI_WorkTogether/mcp_server.py`.
+### 🔌 Install in Any AI Tool (Plugin / Skill / MCP)
+This repository is ready to load into your favorite AI client right after cloning:
+
+- **Antigravity**:
+  ```bash
+  ln -s "$(pwd)" ~/.gemini/config/plugins/ai-cyber-office
+  ```
+- **ChatGPT Desktop / Codex CLI** (Skill + MCP):
+  ```bash
+  # Add Skill
+  mkdir -p ~/.codex/skills
+  ln -s "$(pwd)/skills/ai-cyber-office" ~/.codex/skills/ai-cyber-office
+  ```
+  And add to `~/.codex/config.toml`:
+  ```toml
+  [mcp_servers.ai_cyber_office]
+  command = "python3"
+  args = ["/path/to/AI-Cyber-Office/mcp_server.py"]
+  ```
+- **Claude Code**:
+  ```bash
+  claude --plugin-dir /path/to/AI-Cyber-Office
+  ```
+- **Cursor / Windsurf / Cline / Any MCP Client**:
+  Add to your MCP config JSON:
+  ```json
+  {
+    "mcpServers": {
+      "ai-cyber-office": {
+        "command": "python3",
+        "args": ["/path/to/AI-Cyber-Office/mcp_server.py"]
+      }
+    }
+  }
+  ```
 
 ---
 
@@ -51,6 +84,9 @@ This repository follows universal AI plugin standards:
 ### 🚀 快速启动
 
 ```bash
+git clone https://github.com/Hulu-king/AI-Cyber-Office.git
+cd AI-Cyber-Office
+
 # 1. 启动本地服务与全景像素办公室 (http://localhost:8080)
 python3 server.py
 
@@ -58,8 +94,37 @@ python3 server.py
 python3 desktop_dock.py
 ```
 
-### 🔌 在各大 AI 工具中作为插件加载
-本仓库已内置多平台插件规范：
-- **Antigravity**：包含 `plugin.json`、`skills/ai-cyber-office/SKILL.md` 与 `mcp_config.json`；
-- **Claude Code**：包含 `.claude-plugin/plugin.json`；
-- **Codex / Cursor / Windsurf 等 MCP 客户端**：在 MCP 配置中添加 `python3 /path/to/AI_WorkTogether/mcp_server.py` 即可调用。
+### 🔌 在各大 AI 客户端中安装加载（插件 / Skill / MCP）
+克隆仓库后，可按以下方式直接接入您的 AI 工具：
+
+- **Antigravity**：
+  ```bash
+  ln -s "$(pwd)" ~/.gemini/config/plugins/ai-cyber-office
+  ```
+- **ChatGPT Desktop / Codex CLI**（挂载 Skill + MCP）：
+  ```bash
+  mkdir -p ~/.codex/skills
+  ln -s "$(pwd)/skills/ai-cyber-office" ~/.codex/skills/ai-cyber-office
+  ```
+  并在 `~/.codex/config.toml` 中添加：
+  ```toml
+  [mcp_servers.ai_cyber_office]
+  command = "python3"
+  args = ["/path/to/AI-Cyber-Office/mcp_server.py"]
+  ```
+- **Claude Code**：
+  ```bash
+  claude --plugin-dir /path/to/AI-Cyber-Office
+  ```
+- **Cursor / Windsurf / Cline 等任意 MCP 客户端**：
+  在 MCP 配置文件中添加：
+  ```json
+  {
+    "mcpServers": {
+      "ai-cyber-office": {
+        "command": "python3",
+        "args": ["/path/to/AI-Cyber-Office/mcp_server.py"]
+      }
+    }
+  }
+  ```
