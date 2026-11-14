@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges">
+  <!-- 图二 Claude: 无黑边纯正陶土橘像素多脚怪 (#D97757 / #FF7A2E) + 两侧水平短手 + 4条像素腿 -->
+  <!-- 宽扁矩形主躯干 -->
+  <rect x="6" y="8" width="20" height="14" fill="#E07A53"/>
+  <!-- 顶部与左侧高光层 -->
+  <rect x="6" y="8" width="20" height="2" fill="#FF926B"/>
+  <!-- 两侧水平伸出的标志性像素短手 -->
+  <rect x="2" y="13" width="4" height="4" fill="#E07A53"/>
+  <rect x="26" y="13" width="4" height="4" fill="#E07A53"/>
+  <!-- 两颗深棕黑方形像素眼 (#7A3E00 / #1E1108) -->
+  <rect x="9" y="12" width="3" height="3" fill="#23120B"/>
+  <rect x="20" y="12" width="3" height="3" fill="#23120B"/>
+  <!-- 底部 4 条垂直像素短腿 -->
+  <rect x="7" y="22" width="3" height="6" fill="#E07A53"/>
+  <rect x="12" y="22" width="3" height="6" fill="#E07A53"/>
+  <rect x="17" y="22" width="3" height="6" fill="#E07A53"/>
+  <rect x="22" y="22" width="3" height="6" fill="#E07A53"/>
+</svg>

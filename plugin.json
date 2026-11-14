@@ -1,0 +1,21 @@
+{
+  "name": "ai-cyber-office",
+  "displayName": "AI Cyber Office",
+  "version": "1.0.0",
+  "description": "Cross-platform real-time pixel cyber office & desktop dock for monitoring local AI assistants (ChatGPT/Codex, Claude, DeepSeek, Antigravity), live quotas, and interactive CEO approvals.",
+  "author": {
+    "name": "Hulu-king",
+    "url": "https://github.com/Hulu-king"
+  },
+  "homepage": "https://github.com/Hulu-king/AI-Cyber-Office",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hulu-king/AI-Cyber-Office.git"
+  },
+  "logo": "icons/ai-office.svg",
+  "suggestedPrompts": [
+    "Start AI Cyber Office dashboard and desktop dock",
+    "Check live quota and active sessions across all local AI assistants",
+    "Show pending CEO approval requests from local AI tools"
+  ]
+}

@@ -1,14 +1,28 @@
 /**
- * app.js - 前端交互、动态工位增减与工区自定义编辑逻辑
+ * app.js - 跨平台真实本地 AI 状态同步、中央 CEO 交互弹窗监测与点击跳转 AI 客户端窗口
  */
 
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('officeCanvas');
   const office = new OfficeSystem();
 
-  // 日志记录回调
+  const iconPaths = {
+    deepseek: 'icons/char-deepseek.svg',
+    claude: 'icons/char-claude.svg',
+    openai: 'icons/char-chatgpt.svg',
+    antigravity: 'icons/char-gemini.svg'
+  };
+
+  const reverseIdMap = {
+    deepseek: 'deepseek',
+    claude: 'claude',
+    openai: 'chatgpt',
+    antigravity: 'gemini'
+  };
+
   const addLog = (deptName, tagClass, text) => {
     const stream = document.getElementById('log-stream');
+    if (!stream) return;
     const entry = document.createElement('div');
     entry.className = 'log-entry';
 
@@ -20,34 +34,79 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     stream.appendChild(entry);
+    while (stream.children.length > 80) {
+      stream.removeChild(stream.firstChild);
+    }
     stream.scrollTop = stream.scrollHeight;
   };
 
-  // 统计数据回调
   const updateStats = (stats) => {
+    if (stats.platform !== undefined) {
+      const el = document.getElementById('stat-platform');
+      if (el) el.textContent = stats.platform;
+    }
     if (stats.activeTasks !== undefined) {
-      document.getElementById('stat-active-tasks').textContent = stats.activeTasks;
+      const el = document.getElementById('stat-active-tasks');
+      if (el) el.textContent = stats.activeTasks;
     }
-    if (stats.handoffs !== undefined) {
-      document.getElementById('stat-handoffs').textContent = stats.handoffs;
-    }
-    if (stats.tokens !== undefined) {
-      document.getElementById('stat-tokens').textContent = stats.tokens.toLocaleString();
+    if (stats.ceoPending !== undefined) {
+      const el = document.getElementById('stat-ceo-pending');
+      if (el) el.textContent = stats.ceoPending;
     }
   };
 
-  // 实例化渲染器与模拟器
+  // 调用后端接口激活并跳转到对应的本地 AI 客户端窗口
+  const focusClientWindow = async (deptId, label = '') => {
+    try {
+      await fetch('/api/ceo_action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'focus_window', deptId })
+      });
+      addLog('WINDOW', 'tag-system', `🪟 已为您跳转并激活 [${label || deptId}] 客户端窗口`);
+    } catch (e) {
+      console.warn('Focus window failed', e);
+    }
+  };
+
   const renderer = new OfficeRenderer(canvas, office);
   const simulation = new SimulationManager(office, addLog, updateStats);
 
-  // ==========================================
-  // 任务栏极简挂件模式同步与切换逻辑
-  // ==========================================
+  // ==========================================================
+  // 框内平滑滚动跑马灯引擎 (同时驱动 Web 迷你挂件与右侧部门卡片)
+  // ==========================================================
+  let marqueeTick = 0;
+  const sliceMarquee = (text, widthChars = 26) => {
+    const padded = `${text}   ✦   ${text}   ✦   `;
+    const start = marqueeTick % (text.length + 7);
+    return padded.slice(start, start + widthChars);
+  };
+
+  setInterval(() => {
+    marqueeTick++;
+    ['deepseek', 'claude', 'openai', 'antigravity'].forEach(id => {
+      const dept = office.getDepartment(id);
+      if (!dept) return;
+      const items = (dept.scrollItems && dept.scrollItems.length > 0)
+        ? dept.scrollItems
+        : (dept.activeTasks.length > 0 ? dept.activeTasks.map(t => t.name) : [dept.lightsOn ? '🟢 实时监控就绪' : '🌙 额度耗尽关灯休眠中']);
+      const fullStr = items.join('  ｜  ');
+      const sliced = sliceMarquee(fullStr, 24);
+
+      const dockScrollEl = document.getElementById(`dock-scroll-${id}`);
+      if (dockScrollEl) dockScrollEl.textContent = sliced;
+
+      const cardScrollEl = document.getElementById(`card-scroll-${id}`);
+      if (cardScrollEl) cardScrollEl.textContent = sliceMarquee(fullStr, 36);
+    });
+  }, 180);
+
+  // ==========================================================
+  // 任务栏迷你挂件模式同步与点击跳转窗口
+  // ==========================================================
   const dock = document.getElementById('taskbar-dock');
   const btnToggleTaskbar = document.getElementById('btn-toggle-taskbar-mode');
   const btnExpandDock = document.getElementById('dock-btn-expand');
-  const btnQuickTask = document.getElementById('dock-btn-quick-task');
-  const dockRunner = document.getElementById('dock-runner');
 
   const syncTaskbarDock = () => {
     ['deepseek', 'claude', 'openai', 'antigravity'].forEach(id => {
@@ -55,186 +114,174 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!dept) return;
 
       const pod = document.getElementById(`dock-pod-${id}`);
-      const stateBadge = document.getElementById(`dock-state-${id}`);
       const quotaBadge = document.getElementById(`dock-quota-${id}`);
 
-      if (pod && stateBadge && quotaBadge) {
-        quotaBadge.textContent = `${dept.quota}%`;
+      if (pod && quotaBadge) {
+        quotaBadge.textContent = dept.displayQuota || `${dept.quota}%`;
         if (!dept.lightsOn) {
           pod.classList.add('lights-off');
-          stateBadge.textContent = '🌙 休眠';
-          stateBadge.className = 'dock-state-badge sleeping';
-        } else if (dept.activeTasks.length > 0) {
-          pod.classList.remove('lights-off');
-          stateBadge.textContent = `⚡ 运行 (${dept.activeTasks.length})`;
-          stateBadge.className = 'dock-state-badge working';
         } else {
           pod.classList.remove('lights-off');
-          stateBadge.textContent = '🟢 待命';
-          stateBadge.className = 'dock-state-badge';
         }
       }
     });
   };
 
-  // 切换为任务栏模式
-  const enterTaskbarMode = () => {
-    document.body.classList.add('taskbar-mode');
-    dock.classList.remove('hidden');
-    syncTaskbarDock();
-    if (window.__TAURI__ && window.__TAURI__.core) {
-      window.__TAURI__.core.invoke('toggle_full_view', { isFull: false });
-    }
-    addLog('SYSTEM', 'tag-system', '📌 已切换至任务栏极简模式 (高44px，常驻底部)');
-  };
+  btnToggleTaskbar.addEventListener('click', async () => {
+    try {
+      await fetch('/api/ceo_action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'return_to_dock' })
+      });
+    } catch (e) {}
+    try {
+      window.open('', '_self');
+      window.close();
+    } catch (e) {}
+  });
 
-  // 恢复全屏大办公室模式
-  const exitTaskbarMode = () => {
-    document.body.classList.remove('taskbar-mode');
-    dock.classList.add('hidden');
-    if (window.__TAURI__ && window.__TAURI__.core) {
-      window.__TAURI__.core.invoke('toggle_full_view', { isFull: true });
-    }
-    addLog('SYSTEM', 'tag-system', '🏢 已恢复全景像素办公室视图');
-  };
+  if (btnExpandDock) {
+    btnExpandDock.addEventListener('click', () => {
+      document.body.classList.remove('taskbar-mode');
+      dock.classList.add('hidden');
+    });
+  }
 
-  btnToggleTaskbar.addEventListener('click', enterTaskbarMode);
-  btnExpandDock.addEventListener('click', exitTaskbarMode);
-
-  // 任务栏迷你模式下点击任一 AI 槽位快捷派发任务
+  // 迷你模式下点击任一 AI 槽位，直接跳转到对应 AI 客户端窗口
   ['deepseek', 'claude', 'openai', 'antigravity'].forEach(id => {
     const pod = document.getElementById(`dock-pod-${id}`);
     if (pod) {
       pod.addEventListener('click', () => {
         const dept = office.getDepartment(id);
-        if (!dept.lightsOn) {
-          office.setDepartmentLight(id, true);
-        } else {
-          office.addTask(id, '快捷微服务处理');
-        }
-        renderDeptCards();
-        syncTaskbarDock();
+        focusClientWindow(id, dept ? dept.name : id);
       });
     }
   });
 
-  // 任务栏专属：清晰显示“谁在给谁交接”的跑位与横幅动效
-  const triggerDockHandoffVisual = (fromDeptId, toDeptId, taskName) => {
-    const banner = document.getElementById('dock-handoff-banner');
-    const bannerFrom = document.getElementById('banner-from');
-    const bannerTo = document.getElementById('banner-to');
-    const bannerTask = document.getElementById('banner-task');
-    const runner = document.getElementById('dock-flying-runner');
-    const runnerAvatar = document.getElementById('dock-runner-avatar');
+  // ==========================================================
+  // 1. 渲染 CEO 总裁待批示中心面板 (仅显示真正需要用户选择/确认的弹窗任务)
+  // ==========================================================
+  const renderCEOQueue = (ceoRequests = []) => {
+    const listEl = document.getElementById('ceo-queue-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
 
-    const avatars = {
-      deepseek: '🐳 DeepSeek',
-      claude: '🦀 Claude',
-      openai: '🌀 ChatGPT',
-      antigravity: '✦ Antigravity'
-    };
+    updateStats({ ceoPending: ceoRequests.length });
 
-    const icons = {
-      deepseek: '🐳',
-      claude: '🦀',
-      openai: '🌀',
-      antigravity: '✦'
-    };
-
-    const fromPod = document.getElementById(`dock-pod-${fromDeptId}`);
-    const toPod = document.getElementById(`dock-pod-${toDeptId}`);
-
-    if (!fromPod || !toPod) return;
-
-    // 1. 设置上方横幅文字与角色
-    bannerFrom.textContent = avatars[fromDeptId] || fromDeptId;
-    bannerTo.textContent = avatars[toDeptId] || toDeptId;
-    bannerTask.textContent = taskName || '协同任务';
-    banner.classList.remove('hidden');
-
-    // 2. 高亮发送者与接收者槽位，其余槽位虚化
-    ['deepseek', 'claude', 'openai', 'antigravity'].forEach(id => {
-      const p = document.getElementById(`dock-pod-${id}`);
-      if (p) {
-        p.classList.remove('pod-sender', 'pod-receiver', 'pod-dimmed');
-        if (id === fromDeptId) {
-          p.classList.add('pod-sender');
-        } else if (id === toDeptId) {
-          p.classList.add('pod-receiver');
-        } else {
-          p.classList.add('pod-dimmed');
-        }
-      }
-    });
-
-    // 3. 真正跨槽位跑动小人
-    const container = document.getElementById('dock-pods-container');
-    const startX = fromPod.offsetLeft + 12;
-    const targetX = toPod.offsetLeft + 12;
-
-    runnerAvatar.textContent = icons[fromDeptId] || '🏃';
-    runner.style.transition = 'none';
-    runner.style.left = startX + 'px';
-    runner.classList.remove('hidden');
-
-    // 下一帧启动平滑滑动
-    setTimeout(() => {
-      runner.style.transition = 'left 1.5s cubic-bezier(0.25, 1, 0.5, 1)';
-      runner.style.left = targetX + 'px';
-    }, 50);
-
-    // 4. 到达目标槽位，提示完成，小人返回
-    setTimeout(() => {
-      // 成功音效
-      if (window.pixelAudio) window.pixelAudio.playHandoffSuccess();
-
-      // 发送者跑回原位
-      runner.style.left = startX + 'px';
-
-      setTimeout(() => {
-        runner.classList.add('hidden');
-        banner.classList.add('hidden');
-        ['deepseek', 'claude', 'openai', 'antigravity'].forEach(id => {
-          const p = document.getElementById(`dock-pod-${id}`);
-          if (p) p.classList.remove('pod-sender', 'pod-receiver', 'pod-dimmed');
-        });
-        syncTaskbarDock();
-      }, 1200);
-
-    }, 1800);
-  };
-
-  // 全局交接事件监听（无论从哪里触发，任务栏都清晰同步动效）
-  window.onGlobalHandoff = (fromDept, toDept, task) => {
-    triggerDockHandoffVisual(fromDept, toDept, task);
-  };
-
-  // 任务栏快速交接按钮 (按需轮换或随机交接)
-  let handoffStep = 0;
-  btnQuickTask.addEventListener('click', () => {
-    const pairs = [
-      { from: 'claude', to: 'deepseek', task: '代码初稿 ➔ 小鲸鱼安全审计' },
-      { from: 'antigravity', to: 'deepseek', task: '浮空工匠 ➔ 小鲸鱼慢思考推理' },
-      { from: 'openai', to: 'antigravity', task: '赛博执事 ➔ 浮空星灵系统编排' }
-    ];
-    const pair = pairs[handoffStep % pairs.length];
-    handoffStep++;
-
-    triggerDockHandoffVisual(pair.from, pair.to, pair.task);
-
-    const fromAgent = office.agents.find(a => a.deptId === pair.from);
-    const toAgent = office.agents.find(a => a.deptId === pair.to);
-    if (fromAgent && toAgent) {
-      simulation.startHandoff(fromAgent.id, toAgent.id, pair.task);
+    if (ceoRequests.length === 0) {
+      listEl.innerHTML = `
+        <div style="color:#64748b; font-size:11px; text-align:center; padding:8px 4px;">
+          ${window.t('暂无待批示事项', 'No pending approvals')}
+        </div>
+      `;
+      return;
     }
-  });
 
-  // 渲染部门配额与工位卡片
-  const renderDeptCards = () => {
-    const container = document.getElementById('dept-list');
+    const idMap = {
+      chatgpt: 'openai',
+      openai: 'openai',
+      claude: 'claude',
+      deepseek: 'deepseek',
+      gemini: 'antigravity',
+      antigravity: 'antigravity'
+    };
+
+    ceoRequests.forEach(req => {
+      const rawDept = req.deptId || req.dept || 'antigravity';
+      const deptId = idMap[rawDept] || rawDept;
+      const iconSrc = iconPaths[deptId] || 'icons/char-gemini.svg';
+
+      const item = document.createElement('div');
+      item.className = 'ceo-item';
+      item.style.cursor = 'pointer';
+      item.title = window.t('点击立即跳转到该 AI 客户端窗口进行操作', 'Click to jump to the AI client window');
+      item.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+          <img src="${iconSrc}" width="24" height="24" alt="${deptId}" style="flex-shrink:0;">
+          <div class="ceo-item-info">
+            <div class="ceo-item-title">${req.title}</div>
+            <div class="ceo-item-detail">${req.detail}</div>
+          </div>
+        </div>
+        <button class="mini-btn btn-approve-one" style="color:#fde047; border-color:#ca8a04; flex-shrink:0; font-weight:bold;">
+          ${window.t('🪟 跳转处理', '🪟 Jump & Handle')}
+        </button>
+      `;
+
+      const handleJumpAndApprove = async (e) => {
+        e.stopPropagation();
+        await fetch('/api/ceo_action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'approve', id: req.id, deptId, focus: true })
+        });
+        addLog('CEO', 'tag-system', window.t(`🪟 已跳转至 [${req.agentName || deptId}] 窗口处理，员工返回工位继续办公！`, `🪟 Focused [${req.agentName || deptId}] window; agent returning to desk!`));
+        syncWithRealSystem(true);
+      };
+
+      item.addEventListener('click', handleJumpAndApprove);
+      item.querySelector('.btn-approve-one').addEventListener('click', handleJumpAndApprove);
+
+      listEl.appendChild(item);
+    });
+  };
+
+  const resetBtn = document.getElementById('btn-ceo-reset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', async () => {
+      await fetch('/api/ceo_action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_approvals' })
+      });
+      syncWithRealSystem(true);
+    });
+  }
+
+  // ==========================================================
+  // 2. 渲染跨平台本地已接入 AI 客户端 (支持点击直接跳转窗口)
+  // ==========================================================
+  let lastDiscoveryClients = [];
+  const renderDiscoveryList = (clients = []) => {
+    lastDiscoveryClients = clients;
+    const container = document.getElementById('discovery-list');
+    if (!container) return;
     container.innerHTML = '';
 
-    // 计算全局活跃任务数
+    const idMap = { chatgpt: 'openai', claude: 'claude', deepseek: 'deepseek', gemini: 'antigravity' };
+    clients.forEach(c => {
+      const deptId = idMap[c.id] || c.id;
+      const dept = office.getDepartment(deptId);
+      const winCount = dept ? dept.activeTasks.length : (c.active_windows || 0);
+      const isRun = c.running || winCount > 0;
+      const iconSrc = iconPaths[deptId] || 'icons/char-gemini.svg';
+      const chip = document.createElement('div');
+      chip.className = 'discovery-chip';
+      chip.style.cursor = 'pointer';
+      chip.title = window.t(`点击跳转到 ${c.name} 窗口`, `Click to focus ${c.name} window`);
+      chip.innerHTML = `
+        <div style="display:flex; align-items:center; gap:6px;">
+          <img src="${iconSrc}" width="16" height="16" alt="${c.name}">
+          <span style="font-weight:700; color:#e2e8f0;">${c.name.split(' ')[0]}</span>
+        </div>
+        <span style="font-size:10px; font-family:'JetBrains Mono',monospace; color:${isRun ? '#4ade80' : '#94a3b8'};">
+          ${c.installed ? window.t(`已接入(${winCount}窗)`, `Connected (${winCount}w)`) : window.t('未安装', 'Not Installed')}
+        </span>
+      `;
+      chip.addEventListener('click', () => focusClientWindow(deptId, c.name));
+      container.appendChild(chip);
+    });
+  };
+
+  // ==========================================================
+  // 3. 渲染部门实时状态、额度与框内滚动卡片 (中英双语)
+  // ==========================================================
+  const renderDeptCards = () => {
+    const container = document.getElementById('dept-list');
+    if (!container) return;
+    container.innerHTML = '';
+
     let totalActive = 0;
     Object.values(office.departments).forEach(d => {
       totalActive += d.activeTasks.length;
@@ -246,97 +293,69 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = `dept-card ${dept.lightsOn ? '' : 'lights-off'}`;
       card.id = `card-${dept.id}`;
 
-      const deskCount = Math.max(1, dept.activeTasks.length);
       const isWorking = dept.activeTasks.length > 0;
+      const isBreak = Boolean(dept.lightsOn && dept.isCoffeeBreak);
+      const qStr = dept.displayQuota || `${dept.quota}%`;
+      const iconSrc = iconPaths[dept.id] || 'icons/char-gemini.svg';
+      const pillText = !dept.lightsOn
+        ? window.t(`🌙 休眠 (${qStr})`, `🌙 Sleeping (${qStr})`)
+        : (isBreak
+            ? window.t(`☕ 茶歇 (${qStr})`, `☕ Coffee Break (${qStr})`)
+            : (isWorking
+                ? window.t(`⚡ ${dept.activeTasks.length}窗运行`, `⚡ ${dept.activeTasks.length} Win Active`)
+                : window.t('🟢 待命', '🟢 Standby')));
+      const pillStyle = isBreak ? 'background: rgba(245, 158, 11, 0.16); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.45);' : '';
 
       card.innerHTML = `
         <div class="dept-header">
           <div class="dept-name" style="color: ${dept.color}">
-            <span>●</span> ${dept.name}
+            <img src="${iconSrc}" width="20" height="20" alt="${dept.name}">
+            <span>${dept.name}</span>
           </div>
-          <span class="dept-status-pill ${dept.lightsOn ? (isWorking ? 'pill-on' : 'pill-on') : 'pill-off'}">
-            ${dept.lightsOn ? (isWorking ? `⚡ 运行中 (${dept.activeTasks.length})` : '🟢 待命就绪') : '🌙 额度耗尽休眠'}
+          <span class="dept-status-pill ${dept.lightsOn ? 'pill-on' : 'pill-off'}" style="${pillStyle}">
+            ${pillText}
           </span>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin: 2px 0;">
-          <span style="color:#94a3b8">💻 工位电脑：<b style="color:#e2e8f0">${deskCount}</b> 台 (${dept.activeTasks.length} 运行中)</span>
-          <span class="dept-task-tag">${dept.provider}</span>
+        <!-- 框内实时滚动的本地任务/窗口/终端命令 -->
+        <div class="dept-scroll-box" id="card-scroll-${dept.id}">
+          ${(dept.scrollItems && dept.scrollItems[0]) || window.t('实时状态就绪', 'Live telemetry ready')}
         </div>
 
         <div class="dept-quota-bar-wrapper">
           <div class="quota-bar-bg">
-            <div class="quota-bar-fill" style="width: ${dept.quota}%; background: ${dept.color}"></div>
+            <div class="quota-bar-fill" style="width: ${Math.max(4, dept.quota)}%; background: ${dept.lightsOn ? (isBreak ? '#f59e0b' : dept.color) : '#ef4444'}"></div>
           </div>
-          <span class="quota-text">${dept.quota}%</span>
+          <span class="quota-text" style="width:auto; min-width:65px;">${qStr}</span>
         </div>
 
         <div class="dept-actions">
-          <button class="mini-btn btn-add-task" title="根据新任务自动新增一台电脑和工位" data-dept="${dept.id}" style="color:#38bdf8; border-color:#0284c7;">
-            ➕ 派单 (工位+1)
+          <button class="mini-btn btn-focus-win" title="${window.t('激活并跳转到该 AI 客户端的桌面窗口', 'Activate and focus this AI client window')}" data-dept="${dept.id}" style="color:#38bdf8; border-color:#0284c7;">
+            ${window.t('🪟 跳转窗口', '🪟 Focus Window')}
           </button>
-          <button class="mini-btn btn-remove-task" title="任务完成，自动回收闲置工位电脑" data-dept="${dept.id}">
-            ➖ 完成 (工位-1)
-          </button>
-          <button class="mini-btn btn-edit-zone" title="自定义名称与范围" data-dept="${dept.id}">
-            ⚙️ 设置
-          </button>
-          <button class="mini-btn toggle-light-btn" data-dept="${dept.id}">
-            ${dept.lightsOn ? '🔌 关灯' : '⚡ 点亮'}
+          <button class="mini-btn btn-edit-zone" title="${window.t('自定义名称与范围', 'Customize zone name & layout')}" data-dept="${dept.id}">
+            ${window.t('⚙️ 设置', '⚙️ Settings')}
           </button>
         </div>
       `;
 
-      // 绑定“派单 (工位+1)”
-      card.querySelector('.btn-add-task').addEventListener('click', () => {
-        if (!dept.lightsOn) {
-          addLog(dept.name.split(' ')[0], dept.tagClass, `⚠️ ${dept.name} 关灯休眠中，无法下发任务，请先恢复额度开灯！`);
-          return;
-        }
-        const sampleTasks = ['业务接口开发', '高并发压测', '慢思考推理', '向量检索优化', '前端像素渲染'];
-        const taskName = sampleTasks[Math.floor(Math.random() * sampleTasks.length)];
-        office.addTask(dept.id, taskName);
-        addLog(dept.name.split(' ')[0], dept.tagClass, `💻 检测到新任务《${taskName}》，工位自动扩容，新电脑已就绪！`);
-        renderDeptCards();
+      card.querySelector('.btn-focus-win').addEventListener('click', () => {
+        focusClientWindow(dept.id, dept.name);
       });
 
-      // 绑定“完成 (工位-1)”
-      card.querySelector('.btn-remove-task').addEventListener('click', () => {
-        if (dept.activeTasks.length === 0) {
-          addLog(dept.name.split(' ')[0], dept.tagClass, `ℹ️ 当前已是最低待命工位，无需进一步缩减。`);
-          return;
-        }
-        office.removeTask(dept.id);
-        addLog(dept.name.split(' ')[0], dept.tagClass, `✅ 任务已处理完毕，电脑休眠，多余工位已自动回收。`);
-        renderDeptCards();
-      });
-
-      // 绑定“设置”弹窗
       card.querySelector('.btn-edit-zone').addEventListener('click', () => {
         openZoneModal(dept.id);
       });
 
-      // 绑定“开关灯”
-      card.querySelector('.toggle-light-btn').addEventListener('click', () => {
-        office.setDepartmentLight(dept.id, !dept.lightsOn);
-        addLog(
-          dept.name.split(' ')[0],
-          dept.tagClass,
-          dept.lightsOn ? `💡 额度恢复！灯光点亮，智能体苏醒！` : `🌙 配额耗尽！区域关灯，小人趴桌休眠中。`
-        );
-        renderDeptCards();
-      });
-
       container.appendChild(card);
     });
+
     syncTaskbarDock();
   };
 
-  renderDeptCards();
-
-  // ==========================================
+  // ==========================================================
   // 自定义工作区弹窗逻辑
-  // ==========================================
+  // ==========================================================
   const modal = document.getElementById('modal-zone-editor');
   const modalClose = document.getElementById('modal-close');
   const deptSelect = document.getElementById('edit-dept-select');
@@ -366,15 +385,9 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.classList.remove('hidden');
   };
 
-  deptSelect.addEventListener('change', () => {
-    populateModalFields(deptSelect.value);
-  });
+  deptSelect.addEventListener('change', () => populateModalFields(deptSelect.value));
+  modalClose.addEventListener('click', () => modal.classList.add('hidden'));
 
-  modalClose.addEventListener('click', () => {
-    modal.classList.add('hidden');
-  });
-
-  // 保存自定义设置
   saveBtn.addEventListener('click', () => {
     const targetId = deptSelect.value;
     office.updateDepartment(targetId, {
@@ -387,117 +400,413 @@ document.addEventListener('DOMContentLoaded', () => {
         h: parseInt(hInput.value)
       }
     });
-
-    addLog(targetId, 'tag-system', `🛠️ 工作区 [${nameInput.value}] 设置已更新并持久化保存！`);
+    addLog(targetId, 'tag-system', `🛠️ 工作区 [${nameInput.value}] 设置已保存。`);
     renderDeptCards();
     modal.classList.add('hidden');
   });
 
-  // 恢复默认四区
   resetLayoutBtn.addEventListener('click', () => {
-    if (confirm('确定要恢复默认的四大家族办公区布局吗？')) {
-      office.resetToDefaultLayout();
-      addLog('SYSTEM', 'tag-system', `🔄 已重置所有工作区名字与坐标范围为默认值。`);
-      renderDeptCards();
-      modal.classList.add('hidden');
-    }
-  });
-
-  // ==========================================
-  // 模拟交接按钮绑定
-  // ==========================================
-  // 1. Claude -> DeepSeek 跨客户端交接
-  document.getElementById('btn-cross-handoff').addEventListener('click', () => {
-    // 确保有可用的 agent
-    const cAgent = office.agents.find(a => a.deptId === 'claude');
-    const dAgent = office.agents.find(a => a.deptId === 'deepseek');
-    if (cAgent && dAgent) {
-      simulation.startHandoff(cAgent.id, dAgent.id, '陶土多脚怪 ➔ 蓝色小鲸鱼：代码安全审计');
-    }
-  });
-
-  // 2. Antigravity -> DeepSeek 浮空交接
-  document.getElementById('btn-ag-handoff').addEventListener('click', () => {
-    const agAgent = office.agents.find(a => a.deptId === 'antigravity');
-    const dAgent = office.agents.find(a => a.deptId === 'deepseek');
-    if (agAgent && dAgent) {
-      simulation.startHandoff(agAgent.id, dAgent.id, '反重力工匠 ➔ 蓝色小鲸鱼：慢思考数学逻辑核验');
-    }
-  });
-
-  // 3. OpenAI 部门内部任务交接
-  document.getElementById('btn-intra-handoff').addEventListener('click', () => {
-    // 临时确保 OpenAI 至少有 2 个工位方便内部走动交接
-    const openaiDept = office.getDepartment('openai');
-    if (openaiDept.activeTasks.length < 2) {
-      office.addTask('openai', '需求分析');
-      office.addTask('openai', '并发测试');
-      renderDeptCards();
-    }
-    const oAgents = office.agents.filter(a => a.deptId === 'openai');
-    if (oAgents.length >= 2) {
-      simulation.startHandoff(oAgents[0].id, oAgents[1].id, '赛博执事部内快速流水线协同');
-    }
-  });
-
-  // 4. Claude 额度耗尽关灯 / 恢复
-  const claudeBtn = document.getElementById('btn-toggle-quota-claude');
-  claudeBtn.addEventListener('click', () => {
-    const claudeDept = office.getDepartment('claude');
-    const newState = !claudeDept.lightsOn;
-    office.setDepartmentLight('claude', newState);
-    claudeBtn.innerHTML = newState
-      ? `<span class="btn-icon">🌙</span><span>Claude 额度耗尽 (关灯睡觉)</span>`
-      : `<span class="btn-icon">💡</span><span>Claude 恢复额度 (开灯复工)</span>`;
-    claudeBtn.className = newState ? 'pixel-btn action-btn warning' : 'pixel-btn action-btn success';
+    office.resetToDefaultLayout();
+    addLog('SYSTEM', 'tag-system', '🔄 已恢复默认四区环绕 CEO 办公室布局。');
     renderDeptCards();
+    modal.classList.add('hidden');
   });
 
-  // 5. 全员突击
-  document.getElementById('btn-all-work').addEventListener('click', () => {
-    simulation.triggerAllWork();
-  });
+  // ==========================================================
+  // 中英双语切换与静态 UI 文本同步
+  // ==========================================================
+  const applyLanguageUI = () => {
+    const isEn = (window.LANG === 'en');
+    const setTxt = (id, zh, en) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = isEn ? en : zh;
+    };
+    setTxt('lbl-stat-platform', '系统平台', 'Platform');
+    setTxt('lbl-stat-windows', '活跃窗口', 'Active Windows');
+    setTxt('lbl-stat-ceo', '待批示', 'CEO Pending');
+    setTxt('btn-lang-toggle', '🌐 中文', '🌐 EN');
+    setTxt('btn-toggle-taskbar-mode', '📌 迷你模式', '📌 Mini Dock');
+    setTxt('lbl-ceo-center', 'CEO 待批示中心', 'CEO Approval Center');
+    setTxt('btn-ceo-reset', '🔄 刷新', '🔄 Refresh');
+    setTxt('lbl-dept-section', '本地 AI 状态与实时额度', 'Local AI Status & Live Quotas');
+    setTxt('lbl-discovery-section', '已接入 AI 客户端', 'Connected Local AI Clients');
+    setTxt('lbl-log-section', '实时运行日志', 'Live Telemetry Log');
+    setTxt('btn-clear-log', '清屏', 'Clear');
+    setTxt('dock-btn-expand', '🏢 全景', '🏢 Full Office');
+    setTxt('lbl-modal-title', '⚙️ 工作区设置', '⚙️ Zone Settings');
+    setTxt('lbl-modal-select', '选择工作区:', 'Select Work Zone:');
+    setTxt('lbl-modal-name', '自定义名称:', 'Custom Zone Name:');
+    setTxt('lbl-modal-color', '主题标识色:', 'Theme Color:');
+    setTxt('btn-reset-layout', '恢复默认', 'Reset Default');
+    setTxt('btn-save-zone', '保存应用', 'Save & Apply');
+    setTxt('btn-ceo-notebook', '📓 笔记本', '📓 Notebook');
+    setTxt('lbl-notebook-title', '📓 CEO 的笔记本', '📓 CEO\'s Notebook');
+    setTxt('btn-new-note', '+ 新建笔记', '+ New Note');
+    setTxt('btn-delete-note', '🗑️ 删除', '🗑️ Delete');
+    setTxt('btn-save-note', '💾 保存笔记', '💾 Save Note');
 
-  // 6. 自动演练开关
-  const autoBtn = document.getElementById('btn-toggle-auto');
-  const autoText = document.getElementById('auto-btn-text');
-  autoBtn.addEventListener('click', () => {
-    const isRunning = simulation.toggleAutoSimulation();
-    if (isRunning) {
-      autoBtn.classList.add('primary');
-      autoText.textContent = '停止自动演练';
-    } else {
-      autoBtn.classList.remove('primary');
-      autoText.textContent = '开启全自动交接演练';
+    const nbTitleEl = document.getElementById('note-title-input');
+    if (nbTitleEl) nbTitleEl.placeholder = isEn ? 'Note Title...' : '输入笔记标题...';
+    const nbContentEl = document.getElementById('note-content-input');
+    if (nbContentEl) nbContentEl.placeholder = isEn ? 'Write your dev ideas, architecture notes, or plans here...' : '在这里写下您的开发思路、架构灵感或待办计划...';
+    const nbTagEl = document.getElementById('note-tag-select');
+    if (nbTagEl && nbTagEl.options.length >= 4) {
+      nbTagEl.options[0].textContent = isEn ? '💡 Idea' : '💡 思路';
+      nbTagEl.options[1].textContent = isEn ? '📋 Plan' : '📋 计划';
+      nbTagEl.options[2].textContent = isEn ? '📝 Memo' : '📝 备忘';
+      nbTagEl.options[3].textContent = isEn ? '✅ Done' : '✅ 完成';
     }
-  });
 
-  // 7. 重置所有人
-  document.getElementById('btn-reset-all').addEventListener('click', () => {
-    simulation.resetAll();
-  });
+    renderCEOQueue(office.ceoRequests || []);
+    if (lastDiscoveryClients.length > 0) renderDiscoveryList(lastDiscoveryClients);
+    renderDeptCards();
+    if (typeof renderNotebookList === 'function') renderNotebookList();
+  };
 
-  // 8. 音效开关
+  const langBtn = document.getElementById('btn-lang-toggle');
+  if (langBtn) {
+    langBtn.addEventListener('click', async () => {
+      window.LANG = (window.LANG === 'en') ? 'zh' : 'en';
+      localStorage.setItem('ai_office_lang', window.LANG);
+      applyLanguageUI();
+      try {
+        await fetch('/api/ceo_action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_lang', lang: window.LANG })
+        });
+      } catch (e) {}
+      syncWithRealSystem(true);
+    });
+  }
+
+  // 音效与清屏
   const audioBtn = document.getElementById('btn-audio');
   audioBtn.addEventListener('click', () => {
     const enabled = window.pixelAudio.toggle();
     audioBtn.textContent = enabled ? '🔊' : '🔇';
   });
 
-  // 9. 清屏
   document.getElementById('btn-clear-log').addEventListener('click', () => {
     document.getElementById('log-stream').innerHTML = '';
   });
 
-  // 点击小人交互
-  window.onAgentSelected = (agent) => {
-    addLog(agent.deptId, 'tag-system', `👆 选中工位 [${agent.name}] (${agent.role}) - 状态: ${agent.status}`);
+  // 在画布上点击任意员工（尤其是在 CEO 办公室等待的员工）直接跳转到对应 AI 客户端窗口！
+  window.onAgentSelected = async (agent) => {
+    if (agent.status === 'waiting_ceo' && agent.ceoReqId) {
+      await fetch('/api/ceo_action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve', id: agent.ceoReqId, deptId: agent.deptId, focus: true })
+      });
+      addLog('CEO', 'tag-system', window.t(`🪟 已跳转至 [${agent.name}] 所在客户端窗口，员工返回工位继续工作！`, `🪟 Focused [${agent.name}] window; agent returning to desk!`));
+      syncWithRealSystem(true);
+    } else {
+      focusClientWindow(agent.deptId, agent.name);
+    }
   };
 
-  // 初始欢迎日志
-  addLog('SYSTEM', 'tag-system', '🚀 动态工位系统就绪！工位电脑将根据运行中的任务动态增减。');
-  addLog('DeepSeek', 'tag-deepseek', 'DeepSeek 官方蓝色小鲸鱼 🐳 已就位 (气孔灵动喷水)');
-  addLog('Claude', 'tag-claude', 'Claude 陶土多脚怪 🦀 端着咖啡待命');
-  addLog('OpenAI', 'tag-openai', 'ChatGPT 绿环赛博执事 🌀 陀螺旋转待命');
-  addLog('Antigravity', 'tag-antigravity', 'Antigravity 反重力工匠 ✦ 浮空就绪');
+  // ==========================================================
+  // 真实本地 AI 状态后台自动同步器 (每 3 秒刷新一次)
+  // ==========================================================
+  let lastRealSync = '';
+  let lastLoggedLang = window.LANG;
+  const seenTelemetryItems = new Set();
+  const seenCeoIds = new Set();
+  const lastQuotaMap = {};
+
+  const syncWithRealSystem = async (force = false) => {
+    try {
+      const res = await fetch('/api/live_state');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.lang && data.lang !== window.LANG) {
+        window.LANG = data.lang;
+        localStorage.setItem('ai_office_lang', window.LANG);
+        applyLanguageUI();
+      }
+      if (lastLoggedLang !== window.LANG) {
+        lastLoggedLang = window.LANG;
+        seenTelemetryItems.clear();
+        seenCeoIds.clear();
+        const stream = document.getElementById('log-stream');
+        if (stream) stream.innerHTML = '';
+      }
+      const snapKey = JSON.stringify({
+        l: data.lang,
+        w: data.window_counts,
+        q: data.quotas,
+        c: data.ceo_requests
+      });
+      if (!force && snapKey === lastRealSync) return;
+      lastRealSync = snapKey;
+
+      const { os_platform, platform, discovered_clients, window_counts, window_titles, quotas, ceo_requests } = data;
+      const platStr = os_platform ? os_platform.split(' ')[0] : (platform || 'Linux');
+      updateStats({ platform: platStr });
+
+      const idMap = { chatgpt: 'openai', claude: 'claude', deepseek: 'deepseek', gemini: 'antigravity', antigravity: 'antigravity', openai: 'openai' };
+
+      // 0. 动态加载本机真实探测到的 AI 客户端名称到对应工作区
+      if (discovered_clients && Array.isArray(discovered_clients)) {
+        discovered_clients.forEach(c => {
+          const deptId = idMap[c.id] || c.id;
+          const dept = office.getDepartment(deptId);
+          if (dept && c.name) {
+            dept.name = c.name;
+            if (c.provider) dept.provider = c.provider;
+          }
+        });
+      }
+
+      // 1. 同步真实额度、茶歇状态与开关灯，并将真实运行动态写入 Live Telemetry Log
+      if (quotas) {
+        for (const [key, qinfo] of Object.entries(quotas)) {
+          const deptId = idMap[key] || key;
+          const dept = office.getDepartment(deptId);
+          if (!dept) continue;
+          dept.quota = qinfo.quota_percent;
+          dept.displayQuota = qinfo.display_str || `${qinfo.quota_percent}%`;
+          dept.scrollItems = qinfo.scroll_items || [];
+          const shouldLight = !qinfo.is_sleeping;
+          const isCoffeeBreak = (qinfo.status === 'coffee_break');
+          if (dept.lightsOn !== shouldLight || dept.isCoffeeBreak !== isCoffeeBreak) {
+            office.setDepartmentLight(deptId, shouldLight, isCoffeeBreak);
+          }
+
+          // 记录额度变化日志
+          const prevQ = lastQuotaMap[deptId];
+          if (prevQ !== dept.displayQuota) {
+            lastQuotaMap[deptId] = dept.displayQuota;
+            const winCnt = (window_counts && window_counts[key]) || 0;
+            addLog(
+              dept.name,
+              dept.tagClass || 'tag-system',
+              window.t(
+                `📊 实时额度: ${dept.displayQuota} ｜ 活跃窗口: ${winCnt}`,
+                `📊 Quota: ${dept.displayQuota} ｜ Active Windows: ${winCnt}`
+              )
+            );
+          }
+
+          // 记录该 AI 客户端正在执行的任务/终端/推理动态
+          (dept.scrollItems || []).forEach(item => {
+            const sig = `${deptId}::${item}`;
+            if (!seenTelemetryItems.has(sig)) {
+              seenTelemetryItems.add(sig);
+              addLog(dept.name, dept.tagClass || 'tag-system', item);
+            }
+          });
+        }
+      }
+
+      // 2. 同步真实窗口数量与任务名
+      if (window_counts) {
+        for (const [key, count] of Object.entries(window_counts)) {
+          const deptId = idMap[key] || key;
+          const dept = office.getDepartment(deptId);
+          if (dept) {
+            const titles = (quotas && quotas[key] && quotas[key].scroll_items) || (window_titles && window_titles[key]) || [];
+            dept.activeTasks = [];
+            for (let i = 0; i < count; i++) {
+              const tName = titles[i] || window.t(`活跃窗口 #${i + 1}`, `Active Win #${i + 1}`);
+              dept.activeTasks.push({
+                id: `real_win_${i + 1}`,
+                name: tName,
+                startedAt: Date.now()
+              });
+            }
+            office.rebuildDepartmentWorkstations(deptId);
+          }
+        }
+      }
+
+      // 3. 同步中央 CEO 办公室待决策队列，并将新待批示事项写入 Live Telemetry Log
+      if (ceo_requests) {
+        office.syncCEORequests(ceo_requests);
+        renderCEOQueue(ceo_requests);
+        ceo_requests.forEach(req => {
+          if (!seenCeoIds.has(req.id)) {
+            seenCeoIds.add(req.id);
+            addLog(
+              'CEO',
+              'tag-system',
+              window.t(
+                `👑 [${req.dept_name || req.dept}] 进入总裁室等待操作: ${req.title}`,
+                `👑 [${req.dept_name || req.dept}] Waiting in CEO Office: ${req.title}`
+              )
+            );
+          }
+        });
+      }
+
+      if (discovered_clients) renderDiscoveryList(discovered_clients);
+      renderDeptCards();
+      syncTaskbarDock();
+    } catch (e) {
+      console.warn('Real AI state sync failed', e);
+    }
+  };
+
+  // ==========================================================
+  // CEO 的笔记本 (点击画布上的 CEO / 翻动中的笔记本 或 顶栏按钮打开)
+  // ==========================================================
+  const nbModal = document.getElementById('modal-ceo-notebook');
+  const nbListEl = document.getElementById('notebook-list');
+  const nbTitleInput = document.getElementById('note-title-input');
+  const nbTagSelect = document.getElementById('note-tag-select');
+  const nbContentInput = document.getElementById('note-content-input');
+  const nbStatusMsg = document.getElementById('note-status-msg');
+  let ceoNotes = [];
+  let activeNoteId = null;
+
+  const getTagLabel = (tag) => {
+    const map = {
+      idea: window.t('💡 思路', '💡 Idea'),
+      plan: window.t('📋 计划', '📋 Plan'),
+      memo: window.t('📝 备忘', '📝 Memo'),
+      done: window.t('✅ 完成', '✅ Done')
+    };
+    return map[tag] || tag;
+  };
+
+  const persistCeoNotes = async () => {
+    try {
+      localStorage.setItem('ai_office_ceo_notes', JSON.stringify(ceoNotes));
+      await fetch('/api/ceo_notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: ceoNotes })
+      });
+    } catch (e) {}
+  };
+
+  const renderNotebookList = () => {
+    if (!nbListEl) return;
+    nbListEl.innerHTML = '';
+    if (ceoNotes.length === 0) {
+      nbListEl.innerHTML = `<div style="color:#64748b; font-size:11px; text-align:center; padding:12px;">${window.t('暂无笔记，点击上方新建', 'No notes yet')}</div>`;
+      return;
+    }
+    ceoNotes.forEach(note => {
+      const item = document.createElement('div');
+      item.className = `notebook-item ${note.id === activeNoteId ? 'active' : ''}`;
+      item.innerHTML = `
+        <div class="notebook-item-title">${note.title || window.t('未命名笔记', 'Untitled Note')}</div>
+        <div class="notebook-item-meta">${getTagLabel(note.tag)} · ${note.updatedAt || ''}</div>
+      `;
+      item.addEventListener('click', () => selectCeoNote(note.id));
+      nbListEl.appendChild(item);
+    });
+  };
+
+  const selectCeoNote = (id) => {
+    activeNoteId = id;
+    const note = ceoNotes.find(n => n.id === id);
+    if (note) {
+      nbTitleInput.value = note.title || '';
+      nbTagSelect.value = note.tag || 'idea';
+      nbContentInput.value = note.content || '';
+    } else {
+      nbTitleInput.value = '';
+      nbTagSelect.value = 'idea';
+      nbContentInput.value = '';
+    }
+    nbStatusMsg.textContent = '';
+    renderNotebookList();
+  };
+
+  const loadCeoNotes = async () => {
+    try {
+      const res = await fetch('/api/ceo_notes');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.notes) && data.notes.length > 0) {
+          ceoNotes = data.notes;
+        }
+      }
+    } catch (e) {}
+    if (ceoNotes.length === 0) {
+      try {
+        const cached = JSON.parse(localStorage.getItem('ai_office_ceo_notes') || '[]');
+        if (Array.isArray(cached) && cached.length > 0) ceoNotes = cached;
+      } catch (e) {}
+    }
+    if (ceoNotes.length === 0) {
+      ceoNotes = [{
+        id: `note_${Date.now()}`,
+        title: window.t('开发思路与迭代计划', 'Dev Ideas & Roadmap'),
+        tag: 'idea',
+        content: '',
+        updatedAt: new Date().toLocaleDateString()
+      }];
+    }
+    selectCeoNote(activeNoteId && ceoNotes.some(n => n.id === activeNoteId) ? activeNoteId : ceoNotes[0].id);
+  };
+
+  window.openCeoNotebook = async () => {
+    if (!nbModal) return;
+    await loadCeoNotes();
+    nbModal.classList.remove('hidden');
+  };
+
+  const btnOpenNotebook = document.getElementById('btn-ceo-notebook');
+  if (btnOpenNotebook) btnOpenNotebook.addEventListener('click', () => window.openCeoNotebook());
+
+  const btnCloseNotebook = document.getElementById('notebook-close');
+  if (btnCloseNotebook) btnCloseNotebook.addEventListener('click', () => nbModal.classList.add('hidden'));
+
+  const btnNewNote = document.getElementById('btn-new-note');
+  if (btnNewNote) {
+    btnNewNote.addEventListener('click', () => {
+      const newNote = {
+        id: `note_${Date.now()}`,
+        title: window.t('新开发思路', 'New Dev Idea'),
+        tag: 'idea',
+        content: '',
+        updatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      ceoNotes.unshift(newNote);
+      selectCeoNote(newNote.id);
+      nbTitleInput.focus();
+    });
+  }
+
+  const btnSaveNote = document.getElementById('btn-save-note');
+  if (btnSaveNote) {
+    btnSaveNote.addEventListener('click', async () => {
+      let note = ceoNotes.find(n => n.id === activeNoteId);
+      if (!note) {
+        note = { id: `note_${Date.now()}` };
+        ceoNotes.unshift(note);
+        activeNoteId = note.id;
+      }
+      note.title = nbTitleInput.value.trim() || window.t('未命名笔记', 'Untitled Note');
+      note.tag = nbTagSelect.value;
+      note.content = nbContentInput.value;
+      note.updatedAt = new Date().toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      await persistCeoNotes();
+      renderNotebookList();
+      nbStatusMsg.textContent = window.t('✅ 笔记已保存至本地 ceo_notes.json', '✅ Saved to local ceo_notes.json');
+      addLog('CEO', 'tag-system', window.t(`📓 CEO 笔记本已保存: 《${note.title}》`, `📓 CEO Notebook saved: "${note.title}"`));
+    });
+  }
+
+  const btnDeleteNote = document.getElementById('btn-delete-note');
+  if (btnDeleteNote) {
+    btnDeleteNote.addEventListener('click', async () => {
+      ceoNotes = ceoNotes.filter(n => n.id !== activeNoteId);
+      await persistCeoNotes();
+      if (ceoNotes.length > 0) {
+        selectCeoNote(ceoNotes[0].id);
+      } else {
+        activeNoteId = null;
+        selectCeoNote(null);
+      }
+    });
+  }
+
+  applyLanguageUI();
+  syncWithRealSystem(true);
+  setInterval(() => syncWithRealSystem(false), 3000);
 });

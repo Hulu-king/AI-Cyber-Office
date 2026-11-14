@@ -1,0 +1,13 @@
+{
+  "name": "ai-cyber-office",
+  "version": "1.0.0",
+  "description": "Cross-platform real-time pixel cyber office & desktop dock for monitoring local AI assistants (ChatGPT/Codex, Claude, DeepSeek, Antigravity), live quotas, and interactive CEO approvals.",
+  "author": {
+    "name": "Hulu-king",
+    "url": "https://github.com/Hulu-king"
+  },
+  "homepage": "https://github.com/Hulu-king/AI-Cyber-Office",
+  "repository": "https://github.com/Hulu-king/AI-Cyber-Office.git",
+  "skills": "./skills/",
+  "mcpServers": "./mcp_config.json"
+}

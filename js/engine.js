@@ -1,5 +1,5 @@
 /**
- * engine.js - 主渲染引擎循环与交互监听
+ * engine.js - 高清全景渲染引擎循环、丰富办公室家具环境与点击跳转窗口交互
  */
 
 class OfficeRenderer {
@@ -9,10 +9,8 @@ class OfficeRenderer {
     this.office = office;
     this.time = 0;
     this.hoveredAgent = null;
+    this.hoveredCeoNotebook = false;
     this.selectedAgent = null;
-
-    // 禁用平滑滤波，保持像素颗粒感
-    this.ctx.imageSmoothingEnabled = false;
 
     this.bindEvents();
     this.startLoop();
@@ -26,14 +24,22 @@ class OfficeRenderer {
       const mx = (e.clientX - rect.left) * scaleX;
       const my = (e.clientY - rect.top) * scaleY;
 
-      // 碰撞检测是否悬停在小人或工位上
       this.hoveredAgent = null;
+      this.hoveredCeoNotebook = false;
       for (const agent of this.office.agents) {
         const dx = mx - agent.x;
-        const dy = my - (agent.y - 10);
-        if (Math.hypot(dx, dy) < 24) {
+        const dy = my - (agent.y - 12);
+        if (Math.hypot(dx, dy) < 34) {
           this.hoveredAgent = agent;
           break;
+        }
+      }
+
+      if (!this.hoveredAgent && this.office.ceoRect) {
+        const cr = this.office.ceoRect;
+        const cx = cr.x + cr.w / 2;
+        if (mx >= cx - 104 && mx <= cx + 104 && my >= cr.y + 56 && my <= cr.y + 164) {
+          this.hoveredCeoNotebook = true;
         }
       }
 
@@ -41,12 +47,23 @@ class OfficeRenderer {
       if (this.hoveredAgent) {
         this.canvas.style.cursor = 'pointer';
         tooltip.classList.remove('hidden');
-        tooltip.style.left = (e.clientX + 14) + 'px';
-        tooltip.style.top = (e.clientY + 14) + 'px';
+        tooltip.style.left = Math.min(rect.width - 230, (e.clientX - rect.left + 16)) + 'px';
+        tooltip.style.top = Math.max(10, (e.clientY - rect.top + 16)) + 'px';
+        const clickHint = `<div style="color:#fde047; margin-top:3px;">${window.t('🪟 点击跳转对应 AI 窗口', '🪟 Click to focus AI client window')}</div>`;
         tooltip.innerHTML = `
           <strong style="color:${this.hoveredAgent.color}">${this.hoveredAgent.name}</strong><br>
-          <span style="color:#94a3b8">${this.hoveredAgent.role}</span><br>
-          状态: <b>${this.getStatusLabel(this.hoveredAgent.status)}</b>
+          <span style="color:#cbd5e1">${this.hoveredAgent.role}</span><br>
+          ${window.t('状态', 'Status')}: <b>${this.getStatusLabel(this.hoveredAgent.status)}</b>
+          ${clickHint}
+        `;
+      } else if (this.hoveredCeoNotebook) {
+        this.canvas.style.cursor = 'pointer';
+        tooltip.classList.remove('hidden');
+        tooltip.style.left = Math.min(rect.width - 230, (e.clientX - rect.left + 16)) + 'px';
+        tooltip.style.top = Math.max(10, (e.clientY - rect.top + 16)) + 'px';
+        tooltip.innerHTML = `
+          <strong style="color:#fbbf24">${window.t('📓 CEO 的笔记本', "📓 CEO's Notebook")}</strong><br>
+          <span style="color:#cbd5e1">${window.t('点击打开笔记本，记录与保存开发思路或计划', 'Click to open notebook, write & save dev ideas or plans')}</span>
         `;
       } else {
         this.canvas.style.cursor = 'default';
@@ -60,16 +77,22 @@ class OfficeRenderer {
         if (window.onAgentSelected) {
           window.onAgentSelected(this.hoveredAgent);
         }
+      } else if (this.hoveredCeoNotebook) {
+        if (window.openCeoNotebook) {
+          window.openCeoNotebook();
+        }
       }
     });
   }
 
   getStatusLabel(status) {
     switch (status) {
-      case 'idle': return '🟢 空闲就绪';
-      case 'working': return '⚡ 专注编码中';
-      case 'handoff': return '📁 递送交接任务';
-      case 'sleeping': return '🌙 额度耗尽休眠中';
+      case 'idle': return window.t('🟢 空闲待命', '🟢 Idle / Standby');
+      case 'working': return window.t('⚡ 正在运行', '⚡ Running Local Task');
+      case 'coffee_break': return window.t('☕ 茶歇溜达', '☕ Coffee Break / Roaming');
+      case 'handoff': return window.t('📁 移动递送', '📁 In Transit');
+      case 'waiting_ceo': return window.t('👑 等待批示', '👑 Waiting in CEO Office');
+      case 'sleeping': return window.t('🌙 关灯休眠', '🌙 Quota Exhausted (Sleeping)');
       default: return status;
     }
   }
@@ -85,7 +108,9 @@ class OfficeRenderer {
   }
 
   update(dt) {
-    // 更新所有智能体的行走与位置
+    if (this.office.updateCoffeeBreakAgents) {
+      this.office.updateCoffeeBreakAgents(this.time);
+    }
     this.office.agents.forEach(agent => {
       if (agent.isWalking && agent.path && agent.path.length > 0) {
         const target = agent.path[0];
@@ -93,7 +118,6 @@ class OfficeRenderer {
         const dy = target.y - agent.y;
         const dist = Math.hypot(dx, dy);
 
-        // 设置朝向
         if (Math.abs(dx) > Math.abs(dy)) {
           agent.direction = dx > 0 ? 'right' : 'left';
         } else {
@@ -128,113 +152,181 @@ class OfficeRenderer {
 
     ctx.clearRect(0, 0, w, h);
 
-    // 1. 绘制底层地板与走廊
-    const tileSize = 20;
+    // 1. 绘制高清底层走廊地砖
+    const tileSize = 28;
     for (let x = 0; x < w; x += tileSize) {
       for (let y = 0; y < h; y += tileSize) {
         Sprites.drawFloorTile(ctx, x, y, tileSize, 'hallway');
       }
     }
 
-    // 2. 绘制 4 个部门的专属地毯与分区边框
-    Object.values(this.office.departments).forEach(dept => {
-      const r = dept.rect;
-      // 部门地毯
-      for (let x = r.x; x < r.x + r.w; x += tileSize) {
-        for (let y = r.y; y < r.y + r.h; y += tileSize) {
-          Sprites.drawFloorTile(ctx, x, y, tileSize, dept.floorType);
-        }
-      }
-
-      // 部门外框线
-      ctx.strokeStyle = dept.color + '44';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(r.x, r.y, r.w, r.h);
-
-      // 部门标牌/地毯印字
-      ctx.save();
-      ctx.fillStyle = dept.color;
-      ctx.font = 'bold 11px monospace';
-      ctx.globalAlpha = 0.6;
-      ctx.fillText(`[ ${dept.name.toUpperCase()} ]`, r.x + 14, r.y + 20);
-      ctx.restore();
-    });
-
-    // 3. 绘制中央休息区 / 饮水机 / 绿植 / 装饰
+    // 2. 绘制中央走廊休息区、咖啡茶水间、喷泉水景与光纤导引线
     this.drawOfficeDecorations(ctx);
 
-    // 4. 绘制所有工位 (桌子、电脑)
-    this.office.agents.forEach(agent => {
-      const dept = this.office.getDepartment(agent.deptId);
-      const isScreenOn = dept.lightsOn && (agent.status === 'working' || (agent.status === 'idle' && Math.sin(time + agent.seat.x) > 0));
-      const isWorking = (agent.status === 'working');
-      Sprites.drawWorkstation(ctx, agent.desk.x, agent.desk.y, isScreenOn, dept.color, isWorking, time);
+    // 3. 绘制 4 个 AI 部门的专属 3D 房间、墙体、专属家具与状态牌
+    Object.values(this.office.departments).forEach(dept => {
+      Sprites.drawDepartmentRoom(ctx, dept, time);
     });
 
-    // 5. 绘制所有智能体 (按 Y 坐标排序以实现 2.5D 正确遮挡关系)
+    // 4. 绘制中央豪华 CEO 总裁办公室
+    Sprites.drawCEOOffice(ctx, this.office.ceoRect, this.office.ceoRequests, time);
+
+    // 5. 绘制所有部门的办公桌与电脑
+    this.office.agents.forEach(agent => {
+      const dept = this.office.getDepartment(agent.deptId);
+      const isScreenOn = dept && dept.lightsOn && (agent.status === 'working' || agent.status === 'idle');
+      const isWorking = (agent.status === 'working');
+      Sprites.drawWorkstation(ctx, agent.desk.x, agent.desk.y, isScreenOn, dept ? dept.color : '#38bdf8', isWorking, time, agent.deptId);
+    });
+
+    // 6. 关灯区域的柔和夜色遮罩 或 茶歇休闲提示横幅
+    Object.values(this.office.departments).forEach(dept => {
+      const r = dept.rect;
+      if (!dept.lightsOn) {
+        Sprites.drawZoneDarkness(ctx, r.x, r.y, r.w, r.h, 0.42);
+
+        ctx.save();
+        Sprites.roundRect(ctx, r.x + r.w / 2 - 155, r.y + r.h - 36, 310, 24, 6, 'rgba(15, 23, 42, 0.92)', '#f43f5e', 1.5);
+        ctx.fillStyle = '#fda4af';
+        ctx.font = 'bold 11px "Noto Sans SC", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(window.t(`🌙 额度耗尽休眠 (${dept.displayQuota || '0%'})`, `🌙 Quota Exhausted · Sleeping (${dept.displayQuota || '0%'})`), r.x + r.w / 2, r.y + r.h - 24);
+        ctx.restore();
+      } else if (dept.isCoffeeBreak) {
+        ctx.save();
+        Sprites.roundRect(ctx, r.x + r.w / 2 - 160, r.y + r.h - 36, 320, 24, 6, 'rgba(15, 23, 42, 0.88)', '#f59e0b', 1.5);
+        ctx.fillStyle = '#fde68a';
+        ctx.font = 'bold 11px "Noto Sans SC", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(window.t(`☕ 5h冷却茶歇 (${dept.displayQuota || '22%'})`, `☕ 5h Cooldown · Coffee Break (${dept.displayQuota || 'Wk 22%'})`), r.x + r.w / 2, r.y + r.h - 24);
+        ctx.restore();
+      }
+    });
+
+    // 7. 绘制所有高清 AI 角色形象 (按 Y 坐标排序)
     const sortedAgents = [...this.office.agents].sort((a, b) => a.y - b.y);
     sortedAgents.forEach(agent => {
       Sprites.drawAgent(ctx, agent.x, agent.y, agent, time);
 
-      // 选中光标环
       if (this.selectedAgent === agent) {
         ctx.strokeStyle = '#facc15';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(agent.x - 14, agent.y - 24, 28, 34);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(agent.x - 28, agent.y - 42, 56, 62);
       }
     });
 
-    // 6. 绘制天花板吊灯
+    // 8. 绘制天花板吊灯
     Object.values(this.office.departments).forEach(dept => {
       dept.lamps.forEach(lamp => {
         Sprites.drawCeilingLamp(ctx, lamp.x, lamp.y, dept.lightsOn, dept.color);
       });
     });
-
-    // 7. 区域光照系统：如果额度耗尽关灯，施加夜间暗影遮罩
-    Object.values(this.office.departments).forEach(dept => {
-      if (!dept.lightsOn) {
-        const r = dept.rect;
-        Sprites.drawZoneDarkness(ctx, r.x, r.y, r.w, r.h, 0.88);
-
-        // 额度耗尽红色告警提示标语
-        ctx.save();
-        ctx.fillStyle = '#ef4444';
-        ctx.font = 'bold 12px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('⚡ QUOTA EXHAUSTED (RATE LIMITED) - SLEEPING ⚡', r.x + r.w / 2, r.y + r.h / 2 + 10);
-        ctx.restore();
-      }
-    });
   }
 
-  // 绘制走廊中间的盆栽、饮水机与服务器机柜
+  // 绘制走廊与公共茶水休闲区装饰
   drawOfficeDecorations(ctx) {
-    // 中央盆栽绿植
-    const plantX = 472;
-    const plantY = 265;
-    Sprites.pixelRect(ctx, plantX + 2, plantY + 10, 12, 10, '#b45309'); // 花盆
-    Sprites.pixelRect(ctx, plantX, plantY, 16, 10, '#15803d'); // 树叶
-    Sprites.pixelRect(ctx, plantX + 3, plantY - 4, 10, 6, '#22c55e');
+    ctx.save();
 
-    // 饮水机 (顶端桶装水 + 机身)
-    const waterX = 472;
-    const waterY = 60;
-    Sprites.borderedRect(ctx, waterX + 2, waterY - 8, 12, 10, '#67e8f9', '#0891b2', 1); // 纯净水桶
-    Sprites.borderedRect(ctx, waterX, waterY + 2, 16, 24, '#f1f5f9', '#94a3b8', 1); // 机身
-    Sprites.pixelRect(ctx, waterX + 4, waterY + 8, 3, 3, '#ef4444'); // 热水按钮
-    Sprites.pixelRect(ctx, waterX + 9, waterY + 8, 3, 3, '#3b82f6'); // 冷水按钮
+    // 1. 走廊地面发光导引灯带 (连接四大部门与中央 CEO 办公室)
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 6]);
+    ctx.strokeRect(506, 145, 428, 535);
+    ctx.setLineDash([]);
 
-    // 底部机柜 (Server Rack)
-    const rackX = 466;
-    const rackY = 480;
-    Sprites.borderedRect(ctx, rackX, rackY, 28, 44, '#1e293b', '#0f172a', 2);
-    // 服务器面板指示灯
-    for (let i = 0; i < 4; i++) {
-      Sprites.pixelRect(ctx, rackX + 4, rackY + 6 + i * 9, 20, 5, '#334155');
-      const ledColor = (Math.floor(this.time * 5 + i) % 2 === 0) ? '#22c55e' : '#38bdf8';
-      Sprites.pixelRect(ctx, rackX + 6, rackY + 8 + i * 9, 2, 2, ledColor);
+    // 2. 顶部中央公共区 (x: 525..915, y: 28..140)：赛博茶水间、自动售货机、圆桌与总控机柜
+    Sprites.roundRect(ctx, 525, 28, 390, 118, 8, '#171C2B', '#2D3652', 2);
+
+    // 左侧：自动售货机双联柜 (Vending Machines)
+    Sprites.roundRect(ctx, 542, 38, 42, 66, 4, '#1E3A8A', '#0F172A', 2);
+    Sprites.pixelRect(ctx, 548, 44, 24, 34, '#0EA5E9'); // 亮蓝展示窗
+    Sprites.pixelRect(ctx, 550, 48, 20, 6, '#FACC15');
+    Sprites.pixelRect(ctx, 550, 58, 20, 6, '#EF4444');
+    Sprites.pixelRect(ctx, 550, 68, 20, 6, '#4ADE80');
+    Sprites.pixelRect(ctx, 550, 86, 18, 10, '#090D16'); // 取货口
+
+    Sprites.roundRect(ctx, 590, 38, 42, 66, 4, '#991B1B', '#0F172A', 2);
+    Sprites.pixelRect(ctx, 596, 44, 24, 34, '#FEF08A');
+    Sprites.pixelRect(ctx, 598, 50, 20, 6, '#F97316');
+    Sprites.pixelRect(ctx, 598, 62, 20, 6, '#3B82F6');
+    Sprites.pixelRect(ctx, 598, 86, 18, 10, '#090D16');
+
+    // 中央：系统遥测主干机房 (Telemetry Core)
+    const rackX = 656;
+    const rackY = 38;
+    Sprites.roundRect(ctx, rackX, rackY, 128, 68, 6, '#0F172A', '#38BDF8', 2);
+    ctx.fillStyle = '#38BDF8';
+    ctx.font = 'bold 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('LOCAL AI BUS', rackX + 64, rackY + 15);
+    for (let i = 0; i < 3; i++) {
+      Sprites.pixelRect(ctx, rackX + 12, rackY + 23 + i * 13, 104, 8, '#1E293B');
+      const ledColor = (Math.floor(this.time * 6 + i) % 2 === 0) ? '#22C55E' : '#38BDF8';
+      Sprites.pixelRect(ctx, rackX + 16, rackY + 25 + i * 13, 6, 4, ledColor);
+      Sprites.pixelRect(ctx, rackX + 26, rackY + 25 + i * 13, 6, 4, '#F59E0B');
     }
+
+    // 右侧：茶水间高脚圆桌与吧台椅
+    ctx.fillStyle = '#334155';
+    ctx.beginPath();
+    ctx.arc(822, 82, 10, 0, Math.PI * 2);
+    ctx.arc(878, 82, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#94A3B8';
+    ctx.strokeStyle = '#1E293B';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(850, 82, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    Sprites.pixelRect(ctx, 844, 76, 8, 8, '#FFFFFF'); // 咖啡杯
+
+    // 3. 底部中央公共休闲广场 (x: 525..915, y: 690..790)：室内生态喷泉水池 + 街机游戏机 + 休闲长椅
+    Sprites.roundRect(ctx, 525, 690, 390, 96, 8, '#171C2B', '#2D3652', 2);
+
+    // 左侧：复古像素街机 (Arcade Cabinet) + 休息长椅
+    Sprites.roundRect(ctx, 545, 700, 40, 68, 4, '#4C1D95', '#F43F5E', 2);
+    Sprites.pixelRect(ctx, 551, 708, 28, 22, '#38BDF8'); // 街机屏幕
+    Sprites.pixelRect(ctx, 551, 734, 28, 8, '#FACC15');  // 摇杆台
+    Sprites.roundRect(ctx, 600, 718, 66, 38, 6, '#334155', '#0F172A', 2); // 休息沙发椅
+
+    // 中央：圆形生态喷泉水景池 (Zen Fountain)
+    const fx = 735;
+    const fy = 738;
+    ctx.fillStyle = '#334155';
+    ctx.strokeStyle = '#64748B';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(fx, fy, 34, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#0284C7';
+    ctx.beginPath();
+    ctx.arc(fx, fy, 27, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 动态水波纹
+    const rippleR = 8 + ((this.time * 14) % 18);
+    ctx.strokeStyle = '#7DD3FC';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(fx, fy, rippleR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 右侧：走廊大型阔叶绿植组
+    Sprites.drawLushPlant(ctx, 818, 714, '#10B981');
+    Sprites.drawLushPlant(ctx, 864, 714, '#38BDF8');
+
+    // 4. CEO 办公室四角迎宾盆栽柱
+    Sprites.drawLushPlant(ctx, 495, 165, '#F59E0B');
+    Sprites.drawLushPlant(ctx, 922, 165, '#F59E0B');
+    Sprites.drawLushPlant(ctx, 495, 615, '#F59E0B');
+    Sprites.drawLushPlant(ctx, 922, 615, '#F59E0B');
+
+    ctx.restore();
   }
 }
 

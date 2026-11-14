@@ -2,4 +2,8 @@ target/
 src-tauri/target/
 __pycache__/
 *.pyc
+*.log
 .DS_Store
+ceo_approved_state.json
+ceo_notes.json
+quota_config.json

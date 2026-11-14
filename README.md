@@ -1,66 +1,65 @@
 # 🏢 AI Cyber Office (AI 像素赛博办公室)
 
-> 像素风多智能体协作与额度实时可视化监控看板。
+A cross-platform **real-time pixel cyber office & floating desktop dock** that monitors your local AI assistants (**ChatGPT / Codex**, **Claude**, **DeepSeek**, **Antigravity**), live quotas, active tasks/terminals, and interactive approval popups — with **one-click Chinese / English bilingual switching** and **universal AI tool plugin / MCP support**.
 
-![Pixel Office Demo Preview](file:///media/Project/Ubuntu/AI_WorkTogether/index.html)
-
----
-
-## 🌟 核心特色与视觉交互
-
-1. **AI 专属办公分区 (Office Zones)**：
-   - 🟣 **Claude 创意研发组** (Anthropic 风格紫系)
-   - 🟢 **OpenAI 综合推理组** (GPT 绿色系)
-   - 🔵 **DeepSeek 算法攻坚组** (赛博蓝系)
-   - 🟡 **Local Ollama 运维私有组** (琥珀金系)
-   - 🏢 **中央走廊与休息区**：带有纯净水饮水机、盆栽绿植、机房服务器机柜。
-
-2. **工位状态与视觉反馈**：
-   - **空闲待命 (Idle)**：区域明亮，小人安坐在工位摸鱼/喝咖啡，电脑屏幕待机微弱。
-   - **执行任务 (Working)**：电脑屏幕高亮发光，代码字符流滚动，双手快速敲击键盘并伴随 8-bit 打字音效，头顶冒出 `💡` 灵感气泡。
-   - **跨区 / 跨客户端交接 (Handoff)**：
-     - 发起方小人站起，手持黄色公文袋（📁），沿过道真实寻路走向目标 AI 工位。
-     - 抵达后递交公文（🤝 气泡 + 提示音），接收方电脑亮起接力工作。
-     - 发起方原路返回工位坐正，恢复待命。
-   - **额度耗尽关灯休眠 (Quota Low / 429)**：
-     - 触发配额耗尽时，该区域的**天花板吊灯“啪嗒”关闭**，整个部门笼罩在夜间暗影中。
-     - 小人趴在桌面上睡着，头顶循环冒出浮动 `Zzz...` 气泡。
-     - 额度恢复或充值后，**灯光点亮**，小人伸懒腰苏醒，恢复待命！
-
-3. **零外部依赖、极速轻量**：
-   - 纯程序化 Canvas 2D 像素绘制，不依赖任何第三方图片资源，100% 离线自包含。
-   - 内置 Web Audio API 合成 8-bit 音效（按键声、开关灯声、交接音效）。
+[中文说明](#中文说明) | [English](#english)
 
 ---
 
-## 🚀 启动与体验方式
+## English
 
-### 方式 1：直接在浏览器中打开
-直接双击或在浏览器中打开项目根目录下的 `index.html` 即可完整体验！
+### ✨ Features
+- **Real Local Telemetry (`ai_real_monitor.py`)**: Automatically detects running local AI clients, active windows, live token/session quotas, terminal commands, and reasoning steps across **Linux, macOS, and Windows**.
+- **CEO Office Interactive Approvals**: Only real interactive decision/confirmation prompts send an AI agent into the central CEO Office. Clicking the agent or approval card jumps directly to that AI client's window.
+- **Quota-Aware Pixel Animations**:
+  - **Working**: Crisp pixel mascots typing at dual-monitor desks with status bubbles.
+  - **5h Cooldown / Coffee Break**: When a short-window limit hits 0% while weekly quota remains, agents stroll around leisure zones (coffee bar, cyber pantry, arcade, lounge) with coffee & headphones.
+  - **Out of Quota**: Lights turn off and agents sleep; when quota recovers, gold coins burst overhead as they return to work.
+- **Native Desktop Dock + Full Office (`desktop_dock.py`)**: Floating always-on-top mini dock with per-AI scrolling task tickers; one-click switch between Mini Dock and Full Cyber Office.
+- **Bilingual (`🌐 中文 / EN`)**: Instant language toggle synced across Web UI, Canvas, Telemetry API, and Desktop Dock.
 
-### 方式 2：使用内置本地服务器启动
-在终端中运行：
+### 🚀 Quick Start
+
 ```bash
-python3 /media/Project/Ubuntu/AI_WorkTogether/server.py
+# 1. Start local backend & web dashboard (http://localhost:8080)
+python3 server.py
+
+# 2. (Linux) Start the native floating desktop dock
+python3 desktop_dock.py
 ```
-然后在浏览器访问：
-👉 `http://localhost:8080`
+
+### 🔌 Use as a Plugin / Skill / MCP Server in AI Tools
+This repository follows universal AI plugin standards:
+- **Antigravity**: Includes `plugin.json`, `skills/ai-cyber-office/SKILL.md`, and `mcp_config.json`.
+- **Claude Code**: Includes `.claude-plugin/plugin.json`.
+- **Codex / Cursor / Windsurf / Any MCP Client**: Point your MCP config to `python3 /path/to/AI_WorkTogether/mcp_server.py`.
 
 ---
 
-## 🎮 模拟控制台功能
+## 中文说明
 
-- **Claude ➔ DeepSeek 跨客户端交接**：观察 Claude 小人站起穿过中央十字走廊走向 DeepSeek 递送文件。
-- **OpenAI 部门内部任务交接**：部门内临近工位协作递送。
-- **Claude 额度耗尽 (关灯睡觉)**：体验部门关灯、全区变暗与趴桌 Zzz 动画。
-- **全员突击加班**：所有在线小人同时疯狂敲键盘写代码。
-- **开启全自动演练**：后台定时调度，随机指派多模型协作交接，像真实的蜂窝开发团队一样繁忙运转！
+### ✨ 核心特性
+- **真实本地 AI 实时监测**：跨平台（Linux / macOS / Windows）自动探测本机 **ChatGPT / Codex**、**Claude**、**DeepSeek**、**Antigravity** 的运行窗口、真实剩余额度、终端执行与推理动态。
+- **CEO 总裁室真实审批**：仅当本地 AI 真正弹出选择/确认弹窗时，对应 AI 员工才会走进中央 CEO 办公室等待；点击员工或待批示卡片即可直接跳转并激活对应 AI 客户端窗口。
+- **额度感知像素动画**：
+  - **工作中**：专属像素员工在双屏工位打字并实时滚动展示任务；
+  - **茶歇冷却**：5 小时额度耗尽但周额度仍有剩余时，员工保持亮灯并在咖啡吧、休闲区溜达放松；
+  - **额度耗尽休眠 / 恢复爆金币**：额度归零关灯休眠，额度恢复时头顶冒出小金币开心复工。
+- **桌面悬浮挂件 & 全景模式互通**：支持桌面常驻一字长条悬浮挂件，一键切换全景办公室与迷你挂件。
+- **中英双语一键切换（`🌐 中文 / EN`）**：网页端、像素画布、遥测日志与桌面挂件全链路同步切换。
 
----
+### 🚀 快速启动
 
-## 📦 打包为独立桌面应用或插件
+```bash
+# 1. 启动本地服务与全景像素办公室 (http://localhost:8080)
+python3 server.py
 
-1. **打包为桌面悬浮挂件 (Tauri / Electron)**：
-   - 将本项目静态目录作为 `distDir`，使用 Tauri 只需 10MB 即可编译为 Windows / macOS / Linux 桌面独立应用，支持置顶或透明窗口。
-2. **包装为 VS Code / Antigravity 插件**：
-   - 作为 Extension Webview Panel，常驻在编辑器的侧边栏（Sidebar）或底部控制台，实时监控当前编码助手的任务状态。
+# 2. (Linux) 启动桌面悬浮挂件
+python3 desktop_dock.py
+```
+
+### 🔌 在各大 AI 工具中作为插件加载
+本仓库已内置多平台插件规范：
+- **Antigravity**：包含 `plugin.json`、`skills/ai-cyber-office/SKILL.md` 与 `mcp_config.json`；
+- **Claude Code**：包含 `.claude-plugin/plugin.json`；
+- **Codex / Cursor / Windsurf 等 MCP 客户端**：在 MCP 配置中添加 `python3 /path/to/AI_WorkTogether/mcp_server.py` 即可调用。
