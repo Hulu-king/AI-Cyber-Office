@@ -354,6 +354,10 @@ class AIDesktopDock(Gtk.Window):
         except Exception as e:
             print(f"[NATIVE DOCK] start server failed: {e}")
 
+    def _hide_dock_once(self):
+        self.hide()
+        return False
+
     def on_open_full_office(self, btn):
         self.ensure_server_running()
         try:
@@ -369,7 +373,7 @@ class AIDesktopDock(Gtk.Window):
                     self.full_win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
                     cur_lang = ai_real_monitor.load_ceo_state().get("lang", "zh")
                     self.full_win.set_title("AI Cyber Office - Full Office" if cur_lang == "en" else "AI Cyber Office - 全景像素办公室")
-                    self.full_win.set_default_size(1560, 920)
+                    self.full_win.set_default_size(1440, 860)
                     self.full_win.set_position(Gtk.WindowPosition.CENTER)
                     try:
                         icon_path = str(BASE_DIR / "icons" / "ai-office.svg")
@@ -388,8 +392,8 @@ class AIDesktopDock(Gtk.Window):
                 else:
                     self.webview.reload()
                 self.full_win.show_all()
-                self.full_win.present()
-                GLib.idle_add(self.hide)
+                self.full_win.present_with_time(Gtk.get_current_event_time())
+                GLib.timeout_add(250, self._hide_dock_once)
                 return
             except Exception as e:
                 print(f"[NATIVE DOCK] WebKit2 open failed, fallback to browser: {e}")
