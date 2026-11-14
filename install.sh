@@ -42,18 +42,24 @@ if ! pgrep -f "$INSTALL_DIR/server.py" >/dev/null 2>&1; then
 fi
 
 if [ "$(uname -s)" = "Linux" ] && [ -n "$DISPLAY$WAYLAND_DISPLAY" ]; then
-  mkdir -p "$HOME/.local/share/applications"
-  cat > "$HOME/.local/share/applications/ai-cyber-dock.desktop" <<EOF
+  mkdir -p "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/128x128/apps"
+  ICON_PATH="$INSTALL_DIR/icons/ai-office.svg"
+  PNG_ICON="$HOME/.local/share/icons/hicolor/128x128/apps/ai-cyber-office.png"
+  if python3 -c "import gi; gi.require_version('GdkPixbuf','2.0'); from gi.repository import GdkPixbuf; pb=GdkPixbuf.Pixbuf.new_from_file_at_scale('$ICON_PATH',128,128,True); pb.savev('$PNG_ICON','png',[],[])" >/dev/null 2>&1; then
+    ICON_PATH="$PNG_ICON"
+  fi
+  cat > "$HOME/.local/share/applications/ai-cyber-office.desktop" <<EOF
 [Desktop Entry]
-Name=AI Cyber Office Dock
+Name=AI Cyber Office
 Comment=AI Cyber Office - Pixel Dashboard & Floating Dock
 Exec=python3 $INSTALL_DIR/desktop_dock.py
-Icon=$INSTALL_DIR/icons/ai-office.svg
+Icon=$ICON_PATH
 Terminal=false
 Type=Application
 Categories=Utility;Development;System;
 StartupNotify=false
 EOF
+  update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
   nohup python3 "$INSTALL_DIR/desktop_dock.py" >/tmp/ai-cyber-dock.log 2>&1 &
 elif [ "$(uname -s)" = "Darwin" ]; then
   open "http://localhost:8080" >/dev/null 2>&1 || true
