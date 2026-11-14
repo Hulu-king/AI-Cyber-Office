@@ -42,7 +42,21 @@ if ! pgrep -f "$INSTALL_DIR/server.py" >/dev/null 2>&1; then
 fi
 
 if [ "$(uname -s)" = "Linux" ] && [ -n "$DISPLAY$WAYLAND_DISPLAY" ]; then
+  mkdir -p "$HOME/.local/share/applications"
+  cat > "$HOME/.local/share/applications/ai-cyber-dock.desktop" <<EOF
+[Desktop Entry]
+Name=AI Cyber Office Dock
+Comment=AI Cyber Office - Pixel Dashboard & Floating Dock
+Exec=python3 $INSTALL_DIR/desktop_dock.py
+Icon=$INSTALL_DIR/icons/ai-office.svg
+Terminal=false
+Type=Application
+Categories=Utility;Development;System;
+StartupNotify=false
+EOF
   nohup python3 "$INSTALL_DIR/desktop_dock.py" >/tmp/ai-cyber-dock.log 2>&1 &
+elif [ "$(uname -s)" = "Darwin" ]; then
+  open "http://localhost:8080" >/dev/null 2>&1 || true
 fi
 
 echo "Done! Visit http://localhost:8080 (restart ChatGPT / Antigravity to load MCP & Skill)."
