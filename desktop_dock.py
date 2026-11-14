@@ -32,6 +32,9 @@ gi.require_version('Gdk', '3.0')
 gi.require_version('GdkPixbuf', '2.0')
 from gi.repository import Gtk, Gdk, GLib, Pango, GdkPixbuf
 
+GLib.set_prgname("ai-cyber-office")
+GLib.set_application_name("AI Cyber Office")
+
 HAS_WEBKIT2 = False
 try:
     gi.require_version('WebKit2', '4.1')

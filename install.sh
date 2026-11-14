@@ -57,6 +57,7 @@ Icon=$ICON_PATH
 Terminal=false
 Type=Application
 Categories=Utility;Development;System;
+StartupWMClass=ai-cyber-office
 StartupNotify=false
 EOF
   update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
