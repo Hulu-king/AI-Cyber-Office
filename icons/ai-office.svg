@@ -1,46 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0B1021"/>
-      <stop offset="100%" stop-color="#171E38"/>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
     </linearGradient>
-    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38BDF8"/>
-      <stop offset="50%" stop-color="#6366F1"/>
-      <stop offset="100%" stop-color="#F59E0B"/>
+    <linearGradient id="borderGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
     </linearGradient>
   </defs>
 
-  <!-- Outer cyber badge -->
-  <rect x="3" y="3" width="58" height="58" rx="14" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="2.8"/>
+  <!-- Outer Rounded Cyber Badge -->
+  <rect x="6" y="6" width="116" height="116" rx="24" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="5"/>
 
-  <!-- Subtle cyber grid -->
-  <path d="M12 52 H52" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+  <!-- Subtle Pixel Grid Accent -->
+  <rect x="18" y="18" width="92" height="92" rx="14" fill="#0b0f1d" opacity="0.7"/>
 
-  <!-- Golden CEO Crown on roof -->
-  <path d="M24 14 L27 19 L32 13 L37 19 L40 14 L39 21 H25 Z" fill="#FBBF24"/>
-  <rect x="25" y="21" width="14" height="2.5" rx="1" fill="#F59E0B"/>
+  <!-- CEO Crown Beacon at Top -->
+  <path d="M46 28 L52 18 L64 25 L76 18 L82 28 Z" fill="#fbbf24" stroke="#78350f" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="46" y="28" width="36" height="5" rx="2" fill="#f59e0b"/>
 
-  <!-- Cyber Office Tower -->
-  <rect x="16" y="24" width="32" height="28" rx="3" fill="#1E293B" stroke="#475569" stroke-width="1.5"/>
+  <!-- Cyber Office Building Silhouette -->
+  <rect x="28" y="36" width="72" height="68" rx="8" fill="#172036" stroke="#475569" stroke-width="3"/>
 
-  <!-- 4 AI Department Glowing Pixel Windows -->
+  <!-- 4 AI Zone Windows (DeepSeek, ChatGPT, Claude, Antigravity) -->
   <!-- Top-Left: DeepSeek Blue -->
-  <rect x="20" y="28" width="10" height="8" rx="1.5" fill="#0EA5E9"/>
-  <rect x="22" y="30" width="3" height="2" fill="#E0F2FE"/>
+  <rect x="36" y="44" width="24" height="18" rx="4" fill="#0284c7" stroke="#38bdf8" stroke-width="2"/>
+  <rect x="41" y="49" width="6" height="6" rx="1" fill="#e0f2fe"/>
+  <rect x="50" y="51" width="6" height="4" rx="1" fill="#7dd3fc"/>
 
   <!-- Top-Right: ChatGPT Emerald -->
-  <rect x="34" y="28" width="10" height="8" rx="1.5" fill="#10B981"/>
-  <rect x="36" y="30" width="3" height="2" fill="#D1FAE5"/>
+  <rect x="68" y="44" width="24" height="18" rx="4" fill="#065f46" stroke="#34d399" stroke-width="2"/>
+  <rect x="73" y="49" width="6" height="6" rx="1" fill="#ecfdf5"/>
+  <rect x="82" y="51" width="6" height="4" rx="1" fill="#6ee7b7"/>
 
   <!-- Bottom-Left: Claude Orange -->
-  <rect x="20" y="39" width="10" height="7" rx="1.5" fill="#F97316"/>
-  <rect x="22" y="41" width="3" height="2" fill="#FFEDD5"/>
+  <rect x="36" y="68" width="24" height="18" rx="4" fill="#7c2d12" stroke="#fb923c" stroke-width="2"/>
+  <rect x="41" y="73" width="6" height="6" rx="1" fill="#ffedd5"/>
+  <rect x="50" y="75" width="6" height="4" rx="1" fill="#fdba74"/>
 
   <!-- Bottom-Right: Antigravity Purple -->
-  <rect x="34" y="39" width="10" height="7" rx="1.5" fill="#A855F7"/>
-  <rect x="36" y="41" width="3" height="2" fill="#F3E8FF"/>
+  <rect x="68" y="68" width="24" height="18" rx="4" fill="#4c1d95" stroke="#c084fc" stroke-width="2"/>
+  <rect x="73" y="73" width="6" height="6" rx="1" fill="#f3e8ff"/>
+  <rect x="82" y="75" width="6" height="4" rx="1" fill="#d8b4fe"/>
 
-  <!-- Central Lobby Entrance -->
-  <rect x="29" y="47" width="6" height="5" rx="1" fill="#FBBF24"/>
+  <!-- Central CEO Golden Entrance Gate -->
+  <rect x="52" y="88" width="24" height="16" rx="3" fill="#78350f" stroke="#fbbf24" stroke-width="2"/>
+  <rect x="63" y="90" width="2" height="12" fill="#fbbf24"/>
 </svg>
