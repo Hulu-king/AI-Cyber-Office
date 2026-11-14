@@ -18,7 +18,20 @@ A cross-platform **real-time pixel cyber office & floating desktop dock** that m
 - **Native Desktop Dock + Full Office (`desktop_dock.py`)**: Floating always-on-top mini dock with per-AI scrolling task tickers; one-click switch between Mini Dock and Full Cyber Office.
 - **Bilingual (`🌐 中文 / EN`)**: Instant language toggle synced across Web UI, Canvas, Telemetry API, and Desktop Dock.
 
-### 🚀 Quick Start
+### 🚀 One-Line Install (Recommended for Everyone)
+
+- **Windows (PowerShell)**:
+  ```powershell
+  irm https://raw.githubusercontent.com/Hulu-king/AI-Cyber-Office/master/install.ps1 | iex
+  ```
+- **Linux / macOS (Terminal)**:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Hulu-king/AI-Cyber-Office/master/install.sh | bash
+  ```
+
+> Automatically downloads, registers the ChatGPT/Codex Skill & MCP Server, links Antigravity plugin, creates a shortcut, and launches the dashboard at `http://localhost:8080`.
+
+### 🛠️ Manual Quick Start
 
 ```bash
 git clone https://github.com/Hulu-king/AI-Cyber-Office.git
@@ -81,7 +94,20 @@ This repository is ready to load into your favorite AI client right after clonin
 - **桌面悬浮挂件 & 全景模式互通**：支持桌面常驻一字长条悬浮挂件，一键切换全景办公室与迷你挂件。
 - **中英双语一键切换（`🌐 中文 / EN`）**：网页端、像素画布、遥测日志与桌面挂件全链路同步切换。
 
-### 🚀 快速启动
+### 🚀 小白一行命令极速安装（推荐）
+
+- **Windows（打开 PowerShell 粘贴运行）**：
+  ```powershell
+  irm https://raw.githubusercontent.com/Hulu-king/AI-Cyber-Office/master/install.ps1 | iex
+  ```
+- **Linux / macOS（打开终端粘贴运行）**：
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Hulu-king/AI-Cyber-Office/master/install.sh | bash
+  ```
+
+> 自动完成下载、挂载 ChatGPT/Codex Skill 与 MCP、接入 Antigravity 插件、生成桌面快捷方式并自动启动看板（`http://localhost:8080`）。
+
+### 🛠️ 手动快速启动
 
 ```bash
 git clone https://github.com/Hulu-king/AI-Cyber-Office.git
