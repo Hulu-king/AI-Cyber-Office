@@ -1,0 +1,8 @@
+{
+  "name": "AI Cyber Office Monitor",
+  "description": "Real-time GNOME top-bar monitor for ChatGPT, Claude, DeepSeek, and Antigravity with native Full Office launcher and quit control.",
+  "uuid": "ai-office@antigravity",
+  "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
+  "version": 2,
+  "url": "https://github.com/Hulu-king/AI-Cyber-Office"
+}

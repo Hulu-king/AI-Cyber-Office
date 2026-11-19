@@ -61,6 +61,11 @@ StartupWMClass=ai-cyber-office
 StartupNotify=false
 EOF
   update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
+  if command -v gnome-extensions >/dev/null 2>&1; then
+    mkdir -p "$HOME/.local/share/gnome-shell/extensions"
+    ln -sfn "$INSTALL_DIR/gnome-extension/ai-office@antigravity" "$HOME/.local/share/gnome-shell/extensions/ai-office@antigravity"
+    gnome-extensions enable ai-office@antigravity >/dev/null 2>&1 || true
+  fi
   nohup python3 "$INSTALL_DIR/desktop_dock.py" >/tmp/ai-cyber-dock.log 2>&1 &
 elif [ "$(uname -s)" = "Darwin" ]; then
   open "http://localhost:8080" >/dev/null 2>&1 || true

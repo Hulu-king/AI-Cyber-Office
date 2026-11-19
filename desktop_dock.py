@@ -169,8 +169,9 @@ def slice_marquee_window(ring_text, offset, target_cols=24):
 
 
 class AIDesktopDock(Gtk.Window):
-    def __init__(self):
+    def __init__(self, full_only=False):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self._full_only = full_only
 
         self.set_title("AI Cyber Office Dock")
         self.set_decorated(False)
@@ -435,10 +436,18 @@ class AIDesktopDock(Gtk.Window):
         self.return_to_mini_dock()
 
     def on_full_win_delete(self, win, event):
+        if self._full_only:
+            self._stop_event.set()
+            Gtk.main_quit()
+            return True
         self.return_to_mini_dock()
         return True
 
     def on_close_full_office(self, webview):
+        if self._full_only:
+            self._stop_event.set()
+            Gtk.main_quit()
+            return
         self.return_to_mini_dock()
 
     def return_to_mini_dock(self):
@@ -586,9 +595,13 @@ class AIDesktopDock(Gtk.Window):
 
 
 def main():
-    dock = AIDesktopDock()
-    dock.show_all()
-    dock.present()
+    full_only = ("--full-only" in sys.argv)
+    dock = AIDesktopDock(full_only=full_only)
+    if full_only:
+        GLib.idle_add(dock.on_open_full_office, None)
+    else:
+        dock.show_all()
+        dock.present()
     Gtk.main()
 
 
