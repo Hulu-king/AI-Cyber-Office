@@ -614,10 +614,10 @@ def get_deepseek_live(ceo_state):
         "installed": False,
         "running": False,
         "quota_percent": 0,
-        "display_str": "0%(余额不足)",
-        "is_sleeping": True,
-        "status": "sleeping",
-        "active_windows": 1,
+        "display_str": "未运行",
+        "is_sleeping": False,
+        "status": "offline",
+        "active_windows": 0,
         "scroll_items": [],
         "tooltip_lines": [],
         "ceo_requests": []
@@ -704,6 +704,14 @@ def get_deepseek_live(ceo_state):
         key=os.path.getmtime,
         reverse=True
     )
+    if not result["running"]:
+        result["active_windows"] = 0
+        result["is_sleeping"] = False
+        result["status"] = "offline"
+        result["display_str"] = "未运行"
+        result["scroll_items"] = ["⚪ DeepSeek 未运行"]
+        return result
+
     if sess_files:
         result["active_windows"] = len(sess_files)
     for idx, sf in enumerate(sess_files[:3], 1):
@@ -852,6 +860,8 @@ def _tr(text, lang="zh"):
         return text
     s = str(text)
     replacements = [
+        ("⚪ DeepSeek 未运行", "⚪ DeepSeek Offline"),
+        ("未运行", "Offline"),
         ("未知(在线)", "N/A (Active)"),
         ("未知", "N/A"),
         ("✦ Antigravity 本地会话协同中", "✦ Antigravity Agent Active"),
